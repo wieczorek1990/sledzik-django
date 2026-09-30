@@ -3,6 +3,12 @@ from django.db import models
 
 class Tenant(models.Model):
     name = models.CharField(max_length=255, unique=True)
+    token = models.CharField(max_length=255, unique=True)
+
+    def save(self, *args, **kwargs):
+        if not self.token:
+            self.token = models.UUIDField().default()
+        super().save(*args, **kwargs)
 
     def __str__(self) -> str:
         return self.name

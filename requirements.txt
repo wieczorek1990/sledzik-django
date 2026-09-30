@@ -1,4 +1,5 @@
 django
 daphne
 djangorestframework
+django-extensions
 httpie

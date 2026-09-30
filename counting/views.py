@@ -3,7 +3,7 @@ from rest_framework import viewsets, decorators, response
 from counting import models, serializers
 
 
-class ActionViewSet(viewsets.ModelViewSet):
+class ActionCounterViewSet(viewsets.ModelViewSet):
     queryset = models.Action.objects.all()
     serializer_class = serializers.ActionSerializer
 
