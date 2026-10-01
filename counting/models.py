@@ -15,27 +15,36 @@ class Tenant(models.Model):
 
 
 class Project(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
         return self.name
 
+    class Meta:
+        unique_together = ["name", "tenant"]
+
 
 class Funnel(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
         return self.name
 
+    class Meta:
+        unique_together = ["name", "project"]
+
 
 class Action(models.Model):
-    name = models.CharField(max_length=255, unique=True)
+    name = models.CharField(max_length=255)
     funnel = models.ForeignKey(Funnel, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
         return self.name
+
+    class Meta:
+        unique_together = ["name", "funnel"]
 
 
 class ActionCounter(models.Model):
