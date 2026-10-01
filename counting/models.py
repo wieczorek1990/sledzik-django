@@ -1,4 +1,5 @@
 from django.db import models
+import uuid
 
 
 class Tenant(models.Model):
@@ -7,7 +8,7 @@ class Tenant(models.Model):
 
     def save(self, *args, **kwargs):
         if not self.token:
-            self.token = models.UUIDField().default()
+            self.token = uuid.uuid4()
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
