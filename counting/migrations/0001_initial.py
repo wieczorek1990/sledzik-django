@@ -8,8 +8,10 @@ class Migration(migrations.Migration):
 
     initial = True
 
+    # ruff: ignore[RUF012]
     dependencies = []
 
+    # ruff: ignore[RUF012]
     operations = [
         migrations.CreateModel(
             name="Action",

@@ -4,7 +4,7 @@ from counting import models
 
 
 class TenantAdmin(admin.ModelAdmin):
-    exclude = ('token',)
+    exclude = ("token",)
 
 
 admin.site.register(models.Tenant, TenantAdmin)

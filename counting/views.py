@@ -1,4 +1,4 @@
-from rest_framework import viewsets, decorators, response, permissions
+from rest_framework import decorators, response, viewsets
 
 from counting import models, serializers
 
@@ -39,7 +39,7 @@ class ActionViewSet(viewsets.ModelViewSet):
 
         action_counter.hit()
 
-        return response.Response({'success': "ok"})
+        return response.Response({"success": "ok"})
 
 
 class ActionCounterViewSet(viewsets.ModelViewSet):

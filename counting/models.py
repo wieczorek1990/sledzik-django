@@ -1,5 +1,6 @@
-from django.db import models
 import uuid
+
+from django.db import models
 
 
 class Tenant(models.Model):
@@ -23,7 +24,7 @@ class Project(models.Model):
         return self.name
 
     class Meta:
-        unique_together = ["name", "tenant"]
+        unique_together = ("name", "tenant")
 
 
 class Funnel(models.Model):
@@ -34,7 +35,7 @@ class Funnel(models.Model):
         return self.name
 
     class Meta:
-        unique_together = ["name", "project"]
+        unique_together = ("name", "project")
 
 
 class Action(models.Model):
@@ -45,7 +46,7 @@ class Action(models.Model):
         return self.name
 
     class Meta:
-        unique_together = ["name", "funnel"]
+        unique_together = ("name", "funnel")
 
 
 class ActionCounter(models.Model):
