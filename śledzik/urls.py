@@ -24,7 +24,11 @@ from django.conf import settings
 from django.conf.urls.static import static
 
 router = routers.DefaultRouter()
-router.register(r"counting", views.ActionCounterViewSet)
+router.register(r"tenants", views.TenantViewSet)
+router.register(r"projects", views.ProjectViewSet)
+router.register(r"funnels", views.FunnelViewSet)
+router.register(r"actions", views.ActionViewSet)
+router.register(r"action-counters", views.ActionCounterViewSet)
 
 urlpatterns = [
     path("admin/", admin.site.urls),

@@ -3,10 +3,24 @@ from rest_framework import viewsets, decorators, response, permissions
 from counting import models, serializers
 
 
-class ActionCounterViewSet(viewsets.ModelViewSet):
+class TenantViewSet(viewsets.ModelViewSet):
+    queryset = models.Tenant.objects.all()
+    serializer_class = serializers.TenantSerializer
+
+
+class ProjectViewSet(viewsets.ModelViewSet):
+    queryset = models.Project.objects.all()
+    serializer_class = serializers.ProjectSerializer
+
+
+class FunnelViewSet(viewsets.ModelViewSet):
+    queryset = models.Funnel.objects.all()
+    serializer_class = serializers.FunnelSerializer
+
+
+class ActionViewSet(viewsets.ModelViewSet):
     queryset = models.Action.objects.all()
     serializer_class = serializers.ActionSerializer
-    permission_classes = (permissions.AllowAny,)
 
     @decorators.action(detail=True, methods=["POST"])
     def hit(self, request, pk=None):
@@ -26,3 +40,8 @@ class ActionCounterViewSet(viewsets.ModelViewSet):
         action_counter.hit()
 
         return response.Response({'success': "ok"})
+
+
+class ActionCounterViewSet(viewsets.ModelViewSet):
+    queryset = models.ActionCounter.objects.all()
+    serializer_class = serializers.ActionCounterSerializer
