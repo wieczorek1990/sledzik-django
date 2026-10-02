@@ -1,7 +1,7 @@
 #!/bin/sh
 # Trying...
 
--euo pipefail
+set -euo pipefail
 
 ./manage.py collectstatic --noinput
 ./manage.py makemigrations
