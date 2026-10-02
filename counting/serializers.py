@@ -6,7 +6,7 @@ from counting import models
 class TenantSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Tenant
-        fields = "__all__"
+        fields = ("name",)
 
 
 class ProjectSerializer(serializers.ModelSerializer):
