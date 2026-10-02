@@ -13,7 +13,7 @@ class Tenant(models.Model):
         super().save(*args, **kwargs)
 
     def __str__(self) -> str:
-        return self.name
+        return f"{self.name}"
 
 
 class Project(models.Model):
@@ -21,7 +21,7 @@ class Project(models.Model):
     tenant = models.ForeignKey(Tenant, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
-        return self.name
+        return f"{self.tenant.name}: {self.name}"
 
     class Meta:
         unique_together = ("name", "tenant")
@@ -32,7 +32,7 @@ class Funnel(models.Model):
     project = models.ForeignKey(Project, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
-        return self.name
+        return f"{self.project.name}: {self.name}"
 
     class Meta:
         unique_together = ("name", "project")
@@ -43,7 +43,7 @@ class Action(models.Model):
     funnel = models.ForeignKey(Funnel, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
-        return self.name
+        return f"{self.funnel.name}: {self.name}"
 
     class Meta:
         unique_together = ("name", "funnel")
@@ -54,7 +54,7 @@ class ActionCounter(models.Model):
     count = models.PositiveIntegerField(default=0)
 
     def __str__(self) -> str:
-        return self.action.name
+        return f"{self.action.name}"
 
     def hit(self):
         self.count += 1
