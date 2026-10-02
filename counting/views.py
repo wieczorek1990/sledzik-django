@@ -1,4 +1,4 @@
-from rest_framework import decorators, response, viewsets
+from rest_framework import decorators, response, viewsets, views,permissions
 
 from counting import models, serializers
 
@@ -22,10 +22,24 @@ class ActionViewSet(viewsets.ModelViewSet):
     queryset = models.Action.objects.all()
     serializer_class = serializers.ActionSerializer
 
+
+class ActionCounterViewSet(viewsets.ModelViewSet):
+    queryset = models.ActionCounter.objects.all()
+    serializer_class = serializers.ActionCounterSerializer
+
+
+class CounterView(views.APIView):
+    permission_classes = (permissions.AllowAny,)
+
+    def get_object(self):
+        pk = self.kwargs.get("pk")
+        if pk is None:
+            return None
+        return models.Action.objects.get(pk=pk)
+
     @decorators.action(detail=True, methods=["POST"])
     def hit(self, request, pk=None):
         action = self.get_object()
-
         try:
             action_counter = models.ActionCounter.objects.get(action=action)
         except models.ActionCounter.DoesNotExist:
@@ -40,8 +54,3 @@ class ActionViewSet(viewsets.ModelViewSet):
         action_counter.hit()
 
         return response.Response({"success": "ok"})
-
-
-class ActionCounterViewSet(viewsets.ModelViewSet):
-    queryset = models.ActionCounter.objects.all()
-    serializer_class = serializers.ActionCounterSerializer
