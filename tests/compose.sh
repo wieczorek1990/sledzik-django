@@ -1,19 +1,30 @@
 #!/bin/sh
 # Tests composing.
 
-valid_token="415037c0-9114-4cd3-9780-6f8872234730"
-authorization="16959c7c40c1588f04d7b6a0764fe42e559e6f83"
-
-url_tenants="localhost:8000/api/tenants/"
-url_projects="localhost:8000/api/projects/"
-url_funnels="localhost:8000/api/funnels/"
-url_actions="localhost:8000/api/actions/"
+valid_token="083a45de-be0c-479a-9870-806defe6799a"
+authorization="4d7784131944de1a84433127feb0fd11b5711eac"
+id=1
 
 echo "Tenants:"
-http POST $url_tenants Authorization:"Token $authorization" name=Soiree
+url_tenants="localhost:8000/admin/counting/tenant/add/"
+read -p "Press enter to open tenants admin..."
+open http://$url_tenants
+
 echo "Projects:"
-http POST $url_projects Authorization:"Token $authorization" name=soiree.tech tenant=1
+url_projects="localhost:8000/api/projects/"
+http POST $url_projects Authorization:"Token $authorization" \
+    name=soiree.tech tenant=$id
+
 echo "Funnels:"
-http POST $url_funnels Authorization:"Token $authorization" name=visits project=1
+url_funnels="localhost:8000/api/funnels/"
+http POST $url_funnels Authorization:"Token $authorization" \
+    name=visits project=$id
+
 echo "Actions:"
-http POST $url_actions Authorization:"Token $authorization" name=ready funnel=1
+url_actions="localhost:8000/api/actions/"
+http POST $url_actions Authorization:"Token $authorization" \
+    name=ready funnel=$id
+
+url="localhost:8000/api/actions/1/hit/"
+echo "Hit:"
+http POST $url Authorization:"Token $authorization" token=$valid_token

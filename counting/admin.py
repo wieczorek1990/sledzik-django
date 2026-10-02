@@ -4,7 +4,7 @@ from counting import models
 
 
 class TenantAdmin(admin.ModelAdmin):
-    exclude = ("token",)
+    readonly_fields = ("token",)
 
 
 admin.site.register(models.Tenant, TenantAdmin)
