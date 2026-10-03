@@ -1,4 +1,4 @@
-from rest_framework import decorators, permissions, response, views, viewsets
+from rest_framework import response, views, viewsets
 
 from counting import models, serializers
 
@@ -23,15 +23,14 @@ class ActionViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.ActionSerializer
 
 
-
 class ActionCounterViewSet(viewsets.ModelViewSet):
     queryset = models.ActionCounter.objects.all()
     serializer_class = serializers.ActionCounterSerializer
 
 
 class CounterView(views.APIView):
-    authentication_classes = []
-    permission_classes = []
+    authentication_classes = ()
+    permission_classes = ()
 
     def get_object(self):
         pk = self.kwargs.get("pk")

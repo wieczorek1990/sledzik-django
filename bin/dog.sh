@@ -1,4 +1,4 @@
 #!/bin/sh
 # Dog.
 
-ruff check --fix .
+ruff check --fix --exclude=*/migrations/*.py .
