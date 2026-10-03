@@ -1,3 +1,4 @@
+
 from rest_framework import response, views, viewsets
 
 from counting import models, serializers
@@ -50,3 +51,22 @@ class CounterView(views.APIView):
         models.ActionCounter.objects.create(action=action)
 
         return response.Response({"success": "ok"})
+
+    def get(self, _, pk=None):
+        action = self.get_object()
+
+        funnel = action.funnel
+        funnel_dictionary = {}
+        funnel_actions_dictionary = {}
+        funnel_actions = funnel.action_set.all()
+        for action in funnel_actions:
+            action_counter_count = action.actioncounter_set.count()
+            funnel_actions_dictionary[action.name] = action_counter_count
+        funnel_dictionary[funnel.name] = funnel_actions_dictionary
+
+        return response.Response(
+            {
+                "success": "ok",
+                "result": funnel_dictionary,
+            }
+        )
