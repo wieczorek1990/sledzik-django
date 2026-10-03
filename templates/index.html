@@ -10,33 +10,62 @@
 </head>
 <body>
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<div id="chart"></div>
+<script src="https://code.jquery.com/jquery-4.0.0.js"></script>
+
+<div id="funnel">
+    <select id="funnel-select">
+        <option>Not ready...</option>
+    </select>
+</div><br/>
+
+<div id="chart"></div><br/>
 
 <script>
-fetch('/api/actions/1/statistics/')
-    .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return r.json();
-    })
-    .then(({ result }) => {
-        const entries = Object.entries(result)
-            .flatMap(([group, inner]) =>
-                Object.entries(inner)
-                    .map(([key, value]) => [`${group} › ${key}`, value])
-            )
-            .sort((a, b) => b[1] - a[1]);
+    function fetchStatistics(selectedOption) {
+        fetch(`/api/actions/${selectedOption}/statistics/`)
+            .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.json();
+            })
+            .then(({result}) => {
+                const entries = Object.entries(result)
+                    .flatMap(([group, inner]) =>
+                        Object.entries(inner)
+                            .map(([key, value]) => [`${group} › ${key}`, value])
+                    )
+                    .sort((a, b) => b[1] - a[1]);
 
-        Plotly.newPlot('chart', [{
-            type: 'funnel',
-            y: entries.map(e => e[0]),
-            x: entries.map(e => e[1]),
-            textinfo: 'value+percent initial',
-        }], { title: 'Actions Funnel' }, { responsive: true });
-    })
-    .catch(err => {
-        document.getElementById('chart').innerHTML =
-            `<p style="color:red">Failed to load chart: ${err.message}</p>`;
+                Plotly.newPlot('chart', [{
+                    type: 'funnel',
+                    y: entries.map(e => e[0]),
+                    x: entries.map(e => e[1]),
+                    textinfo: 'value+percent initial',
+                }], {title: 'Actions Funnel'}, {responsive: true});
+            })
+            .catch(err => {
+                document.getElementById('chart').innerHTML =
+                    `<p style="color:red">Failed to load chart: ${err.message}</p>`;
+            });
+    }
+
+    $(document).ready(function() {
+        $.ajaxSetup({
+          headers: {
+            'Authorization': "Token " + "9799acfed25a213b4b5c7a94b4c51ea6a54c08f7"
+          }
+        });
+        fetchStatistics(1)
+        $.get('/api/actions/', function (response) {
+            const options = response.map(action => `<option value="${action.id}">${action.name}</option>`);
+            $('#funnel-select').html(options.join(''));
+        })
+        $('#funnel-select').change(function() {
+            const selectedOption = $(this).val();
+            fetchStatistics(selectedOption);
+        });
     });
 </script>
+
+
 </body>
 </html>
