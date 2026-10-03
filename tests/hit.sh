@@ -8,8 +8,8 @@ url="localhost:8000/api/actions/1/hit/"
 
 function hit {
   token=$1
-  echo "Testing token:"
-  echo $token
+  echo "Testing token: $token"
+
   http POST $url token=$token
 }
 

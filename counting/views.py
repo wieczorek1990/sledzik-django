@@ -1,4 +1,6 @@
 from rest_framework import decorators, permissions, response, views, viewsets
+from django.views.decorators.csrf import csrf_exempt
+from django.utils.decorators import method_decorator
 
 from counting import models, serializers
 
@@ -18,6 +20,7 @@ class FunnelViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.FunnelSerializer
 
 
+@method_decorator(csrf_exempt, name="dispatch")
 class ActionViewSet(viewsets.ModelViewSet):
     queryset = models.Action.objects.all()
     serializer_class = serializers.ActionSerializer
