@@ -23,15 +23,16 @@ class ActionViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.ActionSerializer
 
     @decorators.action(detail=True, methods=["POST"])
+    @decorators.authentication_classes([])
     @decorators.permission_classes([permissions.AllowAny])
     def hit(self, request, pk=None):
         token = request.data.get("token")
         if not token:
-            return response.Response(status=401, data={"success": "token not present"})
+            return response.Response(status=401, data={"failure": "token not present"})
 
         action = self.get_object()
         if token != action.funnel.project.tenant.token:
-            return response.Response(status=401, data={"success": "invalid token"})
+            return response.Response(status=401, data={"failure": "invalid token"})
         models.ActionCounter.objects.create(action=action)
 
         return response.Response({"success": "ok"})
