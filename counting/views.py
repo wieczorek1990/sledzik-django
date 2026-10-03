@@ -2,7 +2,11 @@
 from rest_framework import response, views, viewsets
 
 from counting import models, serializers
-
+import json
+import plotly.graph_objects as go
+from plotly.utils import PlotlyJSONEncoder
+from django.shortcuts import render
+from django.http import JsonResponse
 
 class TenantViewSet(viewsets.ModelViewSet):
     queryset = models.Tenant.objects.all()
@@ -70,3 +74,22 @@ class CounterView(views.APIView):
                 "result": funnel_dictionary,
             }
         )
+
+
+# counting/views.py
+import plotly.graph_objects as go
+from django.shortcuts import render
+
+def index(request):
+    numbers = [39, 27.4, 20.6, 11, 2]
+    stages = ["Website visit", "Downloads", "Potential customers", "Requested price", "Invoice sent"]
+
+    fig = go.Figure(go.Funnel(
+        y=stages,
+        x=numbers,
+        textinfo="value+percent initial",
+    ))
+    fig.update_layout(title="Sales Funnel")
+
+    chart_json = fig.to_json()
+    return render(request, "index.html", {"chart": chart_json})

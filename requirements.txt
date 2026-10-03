@@ -4,3 +4,4 @@ djangorestframework
 django-extensions
 Twisted[http2,tls]
 httpie
+pandas

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Index</title>
+    <style>
+        body { font-family: system-ui, sans-serif; margin: 40px; }
+        #chart { max-width: 900px; height: 500px; }
+    </style>
+</head>
+<body>
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<div id="chart"></div>
+
+<script>
+fetch('/api/actions/1/statistics/')
+    .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        return r.json();
+    })
+    .then(({ result }) => {
+        const entries = Object.entries(result)
+            .flatMap(([group, inner]) =>
+                Object.entries(inner)
+                    .map(([key, value]) => [`${group} › ${key}`, value])
+            )
+            .sort((a, b) => b[1] - a[1]);
+
+        Plotly.newPlot('chart', [{
+            type: 'funnel',
+            y: entries.map(e => e[0]),
+            x: entries.map(e => e[1]),
+            textinfo: 'value+percent initial',
+        }], { title: 'Actions Funnel' }, { responsive: true });
+    })
+    .catch(err => {
+        document.getElementById('chart').innerHTML =
+            `<p style="color:red">Failed to load chart: ${err.message}</p>`;
+    });
+</script>
+</body>
+</html>
