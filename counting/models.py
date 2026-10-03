@@ -50,12 +50,8 @@ class Action(models.Model):
 
 
 class ActionCounter(models.Model):
-    action = models.OneToOneField(Action, on_delete=models.CASCADE)
-    count = models.PositiveIntegerField(default=0)
+    action = models.ForeignKey(Action, on_delete=models.CASCADE)
+    created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
         return f"{self.action.name}"
-
-    def hit(self):
-        self.count += 1
-        self.save()
