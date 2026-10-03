@@ -1,8 +1,8 @@
 #!/bin/sh
 # Tests composing.
 
-valid_token=cd08835b-caff-4f49-90ae-cdd477dcf8b2
-authorization="898e3d257a0c159fb5a4e7839e9880e0a959362c"
+valid_token=6aa5ad33-7c0d-4b8a-a418-b13a13b56b4f
+authorization=9799acfed25a213b4b5c7a94b4c51ea6a54c08f7
 id=1
 
 echo "Tenants:"
