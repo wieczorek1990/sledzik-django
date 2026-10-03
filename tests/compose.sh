@@ -25,6 +25,6 @@ url_actions="localhost:8000/api/actions/"
 http POST $url_actions Authorization:"Token $authorization" \
     name=ready funnel=$id
 
-url="localhost:8000/api/actions/1/hit/"
 echo "Hit:"
-http POST $url Authorization:"Token $authorization" token=$valid_token
+url_hit="localhost:8000/api/actions/1/hit/"
+http POST $url_hit Authorization:"Token $authorization" token=$valid_token
