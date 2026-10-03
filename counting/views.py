@@ -25,9 +25,9 @@ class ActionViewSet(viewsets.ModelViewSet):
     queryset = models.Action.objects.all()
     serializer_class = serializers.ActionSerializer
 
-    @decorators.action(detail=True, methods=["POST"])
+    @decorators.action(detail=True, methods=["GET"])
     @decorators.authentication_classes([])
-    @decorators.permission_classes([permissions.AllowAny])
+    @decorators.permission_classes([])
     def hit(self, request, pk=None):
         token = request.data.get("token")
         if not token:
