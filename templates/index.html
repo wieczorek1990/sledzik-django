@@ -13,6 +13,15 @@
 <body>
 <input type="hidden" id="auth-token" value="{% if api_token %}{{ api_token }}{% endif %}">
 
+<div>
+    <form id="login-form">
+        <input type="text" id="username" placeholder="Username">
+        <input type="password" id="password" placeholder="Password">
+    </form>
+    <button id="login" type="button">Login</button>
+    <button id="logout" type="button">Logout</button>
+</div>
+
 <div id="funnel">
     <select id="funnel-select" aria-label="Select funnel">
         <option disabled selected>Loading…</option>
@@ -25,13 +34,57 @@
 <script src="https://code.jquery.com/jquery-4.0.0.min.js"></script>
 
 <script>
+    function authorization() {
+        $("#login").show();
+        $("#logout").hide();
+
+        $("#login").click(function(){
+            let url = "/auth/token/"
+
+            let username = $("#username").val()
+            let password = $("#password").val()
+
+            $("#login").show();
+            $("#logout").hide();
+
+            let data = {
+                username: username,
+                password: password
+            }
+            $.ajax({
+                url: url,
+                type: 'POST',
+                data: data,
+                success: function(data) {
+                    if (data.token) {
+                        window.localStorage.setItem("authorization", data.token)
+                        console.log("Logged in successfully...");
+                        $("#login").hide();
+                        $("#logout").show();
+                    }
+                    else {
+                        console.log("Please try again...");
+                    }
+                }
+            });
+        });
+        $("#logout").click(function() {
+            window.localStorage.removeItem("authorization")
+            console.log("Logged out successfully...");
+            $("#login").show();
+            $("#logout").hide();
+        });
+    }
+
 $(document).ready(function () {
+    authorization();
 
     // Build headers once; kept empty if session-cookie auth is used.
     // If token auth is required, pull it from the hidden input ABOVE
     // (which the server fills in), never hardcode it in this file.
     const headers = {};
-    const token = document.getElementById('auth-token')?.value;
+    // const token = document.getElementById('auth-token')?.value;
+    const token = window.localStorage.getItem("authorization");
     if (token) {
         headers['Authorization'] = 'Token ' + token;
     }
