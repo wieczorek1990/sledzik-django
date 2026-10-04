@@ -3,6 +3,7 @@
 
 set -euo pipefail
 
+. ./bin/envs.sh
 ./manage.py collectstatic --noinput
 ./manage.py makemigrations
 ./manage.py migrate
