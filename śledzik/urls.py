@@ -16,6 +16,8 @@ router.register(r"action-counters", views.ActionCounterViewSet, basename="action
 
 urlpatterns = [
     path("", views.index, name="home"),
+    path("index.js/", views.index_js, name="index_js"),
+    path("tests/", views.tests, name="tests"),
     path("admin/", admin.site.urls),
     path("auth/", include("rest_framework.urls")),
     path("auth/token/", rf_views.obtain_auth_token),

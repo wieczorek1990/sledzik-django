@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Tests</title>
+</head>
+<body>
+<script src="https://śledzik.pl:8000/index.js" id="sledzik-script"></script>
+<script>
+    const ACTION_ID = 123;
+
+    function runTest() {
+        if (!window.Sledzik) {
+            console.error("Sledzik not loaded yet");
+            return;
+        }
+        window.Sledzik.hit(ACTION_ID, function (err, data) {
+            if (err) {
+                console.log("Hit failed:", err.message);
+                return;
+            }
+            if (data && data.success === "ok") {
+                console.log("Hit successful.");
+            } else {
+                console.log("Hit failed.");
+            }
+        });
+    }
+
+    const script = document.getElementById('sledzik-script');
+    if (script.complete || script.readyState === 'loaded' || script.readyState === 'complete') {
+        // Already loaded
+        runTest();
+    } else {
+        script.onload = runTest;
+        script.onerror = function () {
+            console.error("Failed to load sledzik script");
+        };
+    }
+</script>
+</body>
+</html>

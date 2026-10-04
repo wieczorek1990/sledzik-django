@@ -7,6 +7,7 @@
     </content>
     <orderEntry type="jdk" jdkName="/opt/bin/python3.16" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="module" module-name="Lumo" />
   </component>
   <component name="PyDocumentationSettings">
     <option name="format" value="PLAIN" />

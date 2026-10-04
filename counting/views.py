@@ -108,3 +108,11 @@ class FunnelStatisticsView(views.APIView):
 
 def index(request):
     return render(request, "index.html")
+
+
+def index_js(request):
+    return render(request, "index.js")
+
+
+def tests(request):
+    return render(request, "tests.html")
