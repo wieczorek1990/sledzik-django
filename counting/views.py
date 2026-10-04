@@ -1,7 +1,8 @@
+import uuid
+
+from django.db.models import Count
 from django.shortcuts import get_object_or_404, render
 from rest_framework import response, views, viewsets
-import uuid
-from django.db.models import Count
 
 from counting import models, serializers
 
@@ -10,36 +11,58 @@ class TenantViewSet(viewsets.ModelViewSet):
     queryset = models.Tenant.objects.all()
     serializer_class = serializers.TenantSerializer
 
+    def get_queryset(self):
+        return models.Tenant.objects.filter(tenant__owner=self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(owner=self.request.user)
+
 
 class ProjectViewSet(viewsets.ModelViewSet):
     queryset = models.Project.objects.all()
     serializer_class = serializers.ProjectSerializer
+
+    def get_queryset(self):
+        return models.Project.objects.filter(tenant__owner=self.request.user)
 
 
 class FunnelViewSet(viewsets.ModelViewSet):
     queryset = models.Funnel.objects.all()
     serializer_class = serializers.FunnelSerializer
 
+    def get_queryset(self):
+        return models.Funnel.objects.filter(project__tenant__owner=self.request.user)
+
 
 class ActionViewSet(viewsets.ModelViewSet):
     queryset = models.Action.objects.all()
     serializer_class = serializers.ActionSerializer
+
+    def get_queryset(self):
+        return models.Action.objects.filter(
+            funnel__project__tenant__owner=self.request.user
+        )
 
 
 class ActionCounterViewSet(viewsets.ModelViewSet):
     queryset = models.ActionCounter.objects.all()
     serializer_class = serializers.ActionCounterSerializer
 
+    def get_queryset(self):
+        return models.ActionCounter.objects.filter(
+            action__funnel__project__tenant__owner=self.request.user
+        )
 
-class CounterView(views.APIView):
+
+class ActionsCounterView(views.APIView):
     authentication_classes = ()
     permission_classes = ()
 
     def get_object(self):
         pk = self.kwargs.get("pk")
         action = get_object_or_404(
-            models.Action.objects.select_related("funnel__project__tenant"),
-            pk=pk)
+            models.Action.objects.select_related("funnel__project__tenant"), pk=pk
+        )
         return action
 
     def post(self, request, pk=None):
@@ -55,7 +78,9 @@ class CounterView(views.APIView):
         except ValueError:
             return response.Response(status=401, data={"failure": "invalid token"})
         if submitted != action.funnel.project.tenant.token:
-            return response.Response(status=401, data={"failure": "invalid authorization"})
+            return response.Response(
+                status=401, data={"failure": "invalid authorization"}
+            )
 
         models.ActionCounter.objects.create(action=action)
 
@@ -64,7 +89,9 @@ class CounterView(views.APIView):
 
 class FunnelStatisticsView(views.APIView):
     def get(self, request, pk=None):
-        funnel = get_object_or_404(models.Funnel, pk=pk)
+        funnel = get_object_or_404(
+            models.Funnel.objects.filter(project__tenant__owner=request.user), pk=pk
+        )
 
         funnel_actions = funnel.action_set.annotate(n=Count("actioncounter"))
         funnel_actions_dictionary = {a.name: a.n for a in funnel_actions}
