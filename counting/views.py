@@ -1,5 +1,6 @@
 
 from rest_framework import response, views, viewsets
+from django.shortcuts import get_object_or_404
 
 from counting import models, serializers
 from django.shortcuts import render
@@ -52,24 +53,19 @@ class CounterView(views.APIView):
 
         return response.Response({"success": "ok"})
 
-    def get(self, _, pk=None):
-        action = self.get_object()
+    @staticmethod
+    def get(_, pk=None):
+        funnel = get_object_or_404(models.Funnel, pk=pk)
 
-        funnel = action.funnel
-        funnel_dictionary = {}
-        funnel_actions_dictionary = {}
-        funnel_actions = funnel.action_set.all()
-        for action in funnel_actions:
-            action_counter_count = action.actioncounter_set.count()
-            funnel_actions_dictionary[action.name] = action_counter_count
-        funnel_dictionary[funnel.name] = funnel_actions_dictionary
+        funnel_actions_dictionary = {
+            action.name: action.actioncounter_set.count()
+            for action in funnel.action_set.all()  # noqa
+        }
 
-        return response.Response(
-            {
-                "success": "ok",
-                "result": funnel_dictionary,
-            }
-        )
+        return response.Response({
+            "success": "ok",
+            "result": {funnel.name: funnel_actions_dictionary},
+        })
 
 
 def index(request):

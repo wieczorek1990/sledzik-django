@@ -69,7 +69,7 @@ $(document).ready(function () {
     }
 
     function fetchStatistics(funnelId) {
-        return requestJSON(`/api/actions/${encodeURIComponent(funnelId)}/statistics/`)
+        return requestJSON(`/api/funnels/${encodeURIComponent(funnelId)}/statistics/`)
             .then(({ result }) => {
                 if (!result) throw new Error('Unexpected API response');
                 renderChart('chart', result);
