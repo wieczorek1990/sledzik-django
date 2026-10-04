@@ -8,11 +8,11 @@ from rest_framework.authtoken import views as rf_views
 from counting import views
 
 router = routers.DefaultRouter()
-router.register(r"tenants", views.TenantViewSet)
-router.register(r"projects", views.ProjectViewSet)
-router.register(r"funnels", views.FunnelViewSet)
-router.register(r"actions", views.ActionViewSet)
-router.register(r"action-counters", views.ActionCounterViewSet)
+router.register(r"tenants", views.TenantViewSet, basename="tenant")
+router.register(r"projects", views.ProjectViewSet, basename="project")
+router.register(r"funnels", views.FunnelViewSet, basename="funnel")
+router.register(r"actions", views.ActionViewSet, basename="action")
+router.register(r"action-counters", views.ActionCounterViewSet, basename="actioncounter")
 
 urlpatterns = [
     path("", views.index, name="home"),

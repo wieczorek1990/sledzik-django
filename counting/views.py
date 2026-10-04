@@ -8,18 +8,16 @@ from counting import models, serializers
 
 
 class TenantViewSet(viewsets.ModelViewSet):
-    queryset = models.Tenant.objects.all()
     serializer_class = serializers.TenantSerializer
 
     def get_queryset(self):
-        return models.Tenant.objects.filter(tenant__owner=self.request.user)
+        return models.Tenant.objects.filter(owner=self.request.user)
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
-    queryset = models.Project.objects.all()
     serializer_class = serializers.ProjectSerializer
 
     def get_queryset(self):
@@ -27,7 +25,6 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
 
 class FunnelViewSet(viewsets.ModelViewSet):
-    queryset = models.Funnel.objects.all()
     serializer_class = serializers.FunnelSerializer
 
     def get_queryset(self):
@@ -35,7 +32,6 @@ class FunnelViewSet(viewsets.ModelViewSet):
 
 
 class ActionViewSet(viewsets.ModelViewSet):
-    queryset = models.Action.objects.all()
     serializer_class = serializers.ActionSerializer
 
     def get_queryset(self):
@@ -45,7 +41,6 @@ class ActionViewSet(viewsets.ModelViewSet):
 
 
 class ActionCounterViewSet(viewsets.ModelViewSet):
-    queryset = models.ActionCounter.objects.all()
     serializer_class = serializers.ActionCounterSerializer
 
     def get_queryset(self):
@@ -71,16 +66,15 @@ class ActionsCounterView(views.APIView):
         if not token:
             return response.Response(status=401, data={"failure": "token not present"})
 
-        action = self.get_object()
-
         try:
             submitted = uuid.UUID(str(token))
         except ValueError:
             return response.Response(status=401, data={"failure": "invalid token"})
+
+        action = self.get_object()  # only touch the DB once we have a plausible token
+
         if submitted != action.funnel.project.tenant.token:
-            return response.Response(
-                status=401, data={"failure": "invalid authorization"}
-            )
+            return response.Response(status=401, data={"failure": "invalid authorization"})
 
         models.ActionCounter.objects.create(action=action)
 
