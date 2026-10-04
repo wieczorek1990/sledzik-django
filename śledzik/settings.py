@@ -19,7 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
-ALLOWED_HOSTS = ["localhost", "sledzik.pl", "xn--ledzik-2ib.pl"]
+ALLOWED_HOSTS = ["127.0.0.1", "localhost", "sledzik.pl", "xn--ledzik-2ib.pl"]
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "fallback-dev-key")
 DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 
@@ -128,7 +128,7 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.1/howto/static-files/
 
 STATIC_URL = "static/"
-STATIC_ROOT = "static"
+STATIC_ROOT = BASE_DIR / "static"
 
 
 # Email
