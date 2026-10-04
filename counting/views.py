@@ -70,8 +70,4 @@ class CounterView(views.APIView):
 
 
 def index(request):
-    from rest_framework.authtoken.models import Token
-
-    context = {"api_token": Token.objects.first().key}
-
-    return render(request, "index.html", context=context)
+    return render(request, "index.html")

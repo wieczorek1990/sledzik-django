@@ -61,7 +61,7 @@ $(document).ready(function () {
         setMessage(reason || '❖ Logged out.', false);
         // Reset the data area since we can no longer load it
         $('#funnel-select').html('<option disabled selected>Log in to continue</option>');
-        showChartError('Not authenticated.');
+        showChartError('❖ Not authenticated.');
     }
 
     function login(username, password) {
@@ -71,7 +71,7 @@ $(document).ready(function () {
             body: JSON.stringify({ username: username, password: password })
         })
         .then(r => {
-            if (!r.ok) throw new Error(r.status === 400 ? 'Wrong username or password.' : `Login failed (HTTP ${r.status})`);
+            if (!r.ok) throw new Error(r.status === 400 ? '❖ Wrong username or password.' : `❖ Login failed (HTTP ${r.status})`);
             return r.json();
         })
         .then(data => {
@@ -96,7 +96,7 @@ $(document).ready(function () {
     });
 
     $('#logout').on('click', function () {
-        logout('Logged out.');
+        logout('❖ Logged out.');
     });
 
     // ---- API ------------------------------------------------------------
@@ -110,7 +110,7 @@ $(document).ready(function () {
 
         return fetch(url, { headers: headers }).then(r => {
             if (r.status === 401 || r.status === 403) {
-                logout('Session expired, please log in again.');
+                logout('❖ Session expired, please log in again.');
                 throw new Error('Not authenticated.');
             }
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
@@ -135,7 +135,7 @@ $(document).ready(function () {
             y: entries.map(e => e.label),
             x: entries.map(e => e.value),
             textinfo: 'value+percent initial'
-        }], { title: 'Actions Funnel' }, { responsive: true });
+        }], { title: '❖ Actions Funnel' }, { responsive: true });
     }
 
     function showChartError(message) {
@@ -164,7 +164,7 @@ $(document).ready(function () {
             .then(funnels => {
                 const select = $('#funnel-select').empty();
                 if (funnels.length === 0) {
-                    select.append($('<option>').text('No funnels available'));
+                    select.append($('<option>').text('❖ No funnels available'));
                     return;
                 }
                 for (const funnel of funnels) {
@@ -181,7 +181,7 @@ $(document).ready(function () {
                 // only show a generic error for other failures.
                 if (err.message !== 'Not authenticated.') {
                     $('#funnel-select').html('<option>Error loading funnels</option>');
-                    showChartError('Could not load funnel list');
+                    showChartError('❖ Could not load funnel list');
                 }
             });
     }
