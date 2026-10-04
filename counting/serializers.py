@@ -6,7 +6,10 @@ from counting import models
 class TenantSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Tenant
-        fields = ("id", "name",)
+        fields = (
+            "id",
+            "name",
+        )
 
 
 class ProjectSerializer(serializers.ModelSerializer):

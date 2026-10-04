@@ -82,7 +82,9 @@ class ActionsCounterView(views.APIView):
         action = self.get_object()  # only touch the DB once we have a plausible token
 
         if submitted != action.funnel.project.tenant.token:
-            return response.Response(status=401, data={"failure": "invalid authorization"})
+            return response.Response(
+                status=401, data={"failure": "invalid authorization"}
+            )
 
         models.ActionCounter.objects.create(action=action)
 

@@ -12,7 +12,9 @@ router.register(r"tenants", views.TenantViewSet, basename="tenant")
 router.register(r"projects", views.ProjectViewSet, basename="project")
 router.register(r"funnels", views.FunnelViewSet, basename="funnel")
 router.register(r"actions", views.ActionViewSet, basename="action")
-router.register(r"action-counters", views.ActionCounterViewSet, basename="actioncounter")
+router.register(
+    r"action-counters", views.ActionCounterViewSet, basename="actioncounter"
+)
 
 urlpatterns = [
     path("", views.index, name="home"),
