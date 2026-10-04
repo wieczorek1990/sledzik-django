@@ -1,9 +1,11 @@
 #!/bin/sh
 # Tests composing.
 
-valid_token=6aa5ad33-7c0d-4b8a-a418-b13a13b56b4f
-authorization=9799acfed25a213b4b5c7a94b4c51ea6a54c08f7
-id=1
+set -euo pipefail
+
+valid_token=$VALID_TOKEN
+authorization=$AUTHORIZATION
+id=$STARTING_ID
 
 echo "Tenants:"
 url_tenants="localhost:8000/admin/counting/tenant/add/"

@@ -1,5 +1,7 @@
 from django.shortcuts import get_object_or_404, render
 from rest_framework import response, views, viewsets
+import uuid
+from django.db.models import Count
 
 from counting import models, serializers
 
@@ -35,7 +37,10 @@ class CounterView(views.APIView):
 
     def get_object(self):
         pk = self.kwargs.get("pk")
-        return models.Action.objects.get(pk=pk)
+        action = get_object_or_404(
+            models.Action.objects.select_related("funnel__project__tenant"),
+            pk=pk)
+        return action
 
     def post(self, request, pk=None):
         token = request.data.get("token")
@@ -45,21 +50,24 @@ class CounterView(views.APIView):
 
         action = self.get_object()
 
-        if token != action.funnel.project.tenant.token:
+        try:
+            submitted = uuid.UUID(str(token))
+        except ValueError:
             return response.Response(status=401, data={"failure": "invalid token"})
+        if submitted != action.funnel.project.tenant.token:
+            return response.Response(status=401, data={"failure": "invalid authorization"})
 
         models.ActionCounter.objects.create(action=action)
 
         return response.Response({"success": "ok"})
 
-    @staticmethod
-    def get(_, pk=None):
+
+class FunnelStatisticsView(views.APIView):
+    def get(self, request, pk=None):
         funnel = get_object_or_404(models.Funnel, pk=pk)
 
-        funnel_actions_dictionary = {
-            action.name: action.actioncounter_set.count()
-            for action in funnel.action_set.all()
-        }
+        funnel_actions = funnel.action_set.annotate(n=Count("actioncounter"))
+        funnel_actions_dictionary = {a.name: a.n for a in funnel_actions}
 
         return response.Response(
             {

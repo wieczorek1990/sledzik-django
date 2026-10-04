@@ -1,11 +1,13 @@
 #!/bin/sh
 # Tests hitting.
 
+set -euo pipefail
+
 not_present_token=
 invalid_token="abcd"
-valid_token="6aa5ad33-7c0d-4b8a-a418-b13a13b56b4f"
+valid_token=$VALID_TOKEN
 
-url="localhost:8000/api/actions/1/hit/"
+url="localhost:8000/api/funnels/1/hit/"
 
 function hit {
   token=$1
