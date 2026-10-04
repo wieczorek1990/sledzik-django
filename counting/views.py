@@ -21,14 +21,22 @@ class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.ProjectSerializer
 
     def get_queryset(self):
-        return models.Project.objects.filter(tenant__owner=self.request.user)
+        qs = models.Project.objects.filter(tenant__owner=self.request.user)
+        tenant = self.request.query_params.get("tenant")
+        if tenant:
+            qs = qs.filter(tenant__id=tenant)
+        return qs
 
 
 class FunnelViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.FunnelSerializer
 
     def get_queryset(self):
-        return models.Funnel.objects.filter(project__tenant__owner=self.request.user)
+        qs = models.Funnel.objects.filter(project__tenant__owner=self.request.user)
+        project = self.request.query_params.get("project")
+        if project:
+            qs = qs.filter(project__id=project)
+        return qs
 
 
 class ActionViewSet(viewsets.ModelViewSet):

@@ -8,6 +8,7 @@
         #chart { max-width: 900px; height: 500px; }
         #auth-error { color: red; }
         #auth-status { color: green; }
+        label { display: inline-block; min-width: 60px; }
     </style>
 </head>
 <body>
@@ -22,9 +23,24 @@
     <p id="auth-message" aria-live="polite"></p>
 </div>
 
-<div id="funnel">
-    <select id="funnel-select" aria-label="Select funnel">
+<div>
+    <label for="tenant-select">Tenant:</label>
+    <select id="tenant-select" aria-label="Select tenant">
         <option disabled selected>Loading…</option>
+    </select>
+</div><br/>
+
+<div>
+    <label for="project-select">Project:</label>
+    <select id="project-select" aria-label="Select project">
+        <option disabled selected>Select a tenant…</option>
+    </select>
+</div><br/>
+
+<div>
+    <label for="funnel-select">Funnel:</label>
+    <select id="funnel-select" aria-label="Select funnel">
+        <option disabled selected>Select a project…</option>
     </select>
 </div><br/>
 
@@ -59,7 +75,9 @@ $(document).ready(function () {
         window.localStorage.removeItem('authorization');
         updateAuthUI();
         setMessage(reason || '❖ Logged out.', false);
-        // Reset the data area since we can no longer load it
+        // Reset the selectors since we can no longer load any data
+        $('#tenant-select').html('<option disabled selected>Log in to continue</option>');
+        $('#project-select').html('<option disabled selected>Log in to continue</option>');
         $('#funnel-select').html('<option disabled selected>Log in to continue</option>');
         showChartError('❖ Not authenticated.');
     }
@@ -79,7 +97,7 @@ $(document).ready(function () {
             window.localStorage.setItem('authorization', data.token);
             updateAuthUI();
             setMessage('❖ Logged in.', false);
-            loadFunnels();                       // actually use the new session
+            loadTenants();                     // actually use the new session
         })
         .catch(err => setMessage(err.message, true));
     }
@@ -152,19 +170,89 @@ $(document).ready(function () {
             .catch(err => showChartError(err.message));
     }
 
-    // Bind the change handler once, immediately.
+    // ---- Cascade selectors ----------------------------------------------
+
+    // Tenant change → reload its projects
+    $('#tenant-select').on('change', function () {
+        loadProjects($(this).val());
+    });
+
+    // Project change → reload its funnels
+    $('#project-select').on('change', function () {
+        loadFunnels($(this).val());
+    });
+
+    // Funnel change → fetch its statistics
     $('#funnel-select').on('change', function () {
         fetchStatistics($(this).val());
     });
 
     // ---- Initialization --------------------------------------------------
 
-    function loadFunnels() {
-        return requestJSON('/api/funnels/')
+    function loadTenants() {
+        return requestJSON('/api/tenants/')
+            .then(tenants => {
+                const select = $('#tenant-select').empty();
+                if (tenants.length === 0) {
+                    select.append($('<option>').text('❖ No tenants available'));
+                    $('#project-select').html('<option disabled selected>—</option>');
+                    $('#funnel-select').html('<option disabled selected>—</option>');
+                    return;
+                }
+                for (const tenant of tenants) {
+                    $('<option>')
+                        .attr('value', tenant.id)
+                        .text(tenant.name)
+                        .appendTo(select);
+                }
+                select.val(tenants[0].id);
+                return loadProjects(tenants[0].id);
+            })
+            .catch(err => {
+                if (err.message !== 'Not authenticated.') {
+                    $('#tenant-select').html('<option>Error loading tenants</option>');
+                    showChartError('❖ Could not load tenant list');
+                }
+            });
+    }
+
+    function loadProjects(tenantId) {
+        $('#project-select').html('<option disabled selected>Loading…</option>');
+        $('#funnel-select').html('<option disabled selected>—</option>');
+        return requestJSON(`/api/projects/?tenant=${encodeURIComponent(tenantId)}`)
+            .then(projects => {
+                const select = $('#project-select').empty();
+                if (projects.length === 0) {
+                    select.append($('<option>').text('❖ No projects available'));
+                    $('#funnel-select').html('<option disabled selected>—</option>');
+                    showChartError('❖ This tenant has no projects');
+                    return;
+                }
+                for (const project of projects) {
+                    $('<option>')
+                        .attr('value', project.id)
+                        .text(project.name)
+                        .appendTo(select);
+                }
+                select.val(projects[0].id);
+                return loadFunnels(projects[0].id);
+            })
+            .catch(err => {
+                if (err.message !== 'Not authenticated.') {
+                    $('#project-select').html('<option>Error loading projects</option>');
+                    showChartError('❖ Could not load project list');
+                }
+            });
+    }
+
+    function loadFunnels(projectId) {
+        $('#funnel-select').html('<option disabled selected>Loading…</option>');
+        return requestJSON(`/api/funnels/?project=${encodeURIComponent(projectId)}`)
             .then(funnels => {
                 const select = $('#funnel-select').empty();
                 if (funnels.length === 0) {
                     select.append($('<option>').text('❖ No funnels available'));
+                    showChartError('❖ This project has no funnels');
                     return;
                 }
                 for (const funnel of funnels) {
@@ -173,12 +261,10 @@ $(document).ready(function () {
                         .text(funnel.name)
                         .appendTo(select);
                 }
-                select.val(funnels[0].id);       // select matches what we render
+                select.val(funnels[0].id);
                 return fetchStatistics(funnels[0].id);
             })
             .catch(err => {
-                // 401/403 already handled in requestJSON (logout UI shown);
-                // only show a generic error for other failures.
                 if (err.message !== 'Not authenticated.') {
                     $('#funnel-select').html('<option>Error loading funnels</option>');
                     showChartError('❖ Could not load funnel list');
@@ -189,8 +275,10 @@ $(document).ready(function () {
     updateAuthUI();
 
     if (getToken()) {
-        loadFunnels();      // returning visitor with a valid token
+        loadTenants();      // returning visitor with a valid token
     } else {
+        $('#tenant-select').html('<option disabled selected>Log in to continue</option>');
+        $('#project-select').html('<option disabled selected>Log in to continue</option>');
         $('#funnel-select').html('<option disabled selected>Log in to continue</option>');
         setMessage('❖ Please log in.', false);
     }
