@@ -3,69 +3,112 @@
 <head>
     <meta charset="UTF-8">
     <title>Index</title>
+    <!-- Server injects token here IF token auth is unavoidable. Better: omit entirely. -->
+    <!-- <meta name="api-token" content="{{ api_token }}"> -->
     <style>
         body { font-family: system-ui, sans-serif; margin: 40px; }
         #chart { max-width: 900px; height: 500px; }
     </style>
 </head>
 <body>
-<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
-<script src="https://code.jquery.com/jquery-4.0.0.js"></script>
+<!-- If using token auth: fetch token from DOM, not hardcoded -->
+<!-- <input type="hidden" id="auth-token" value="{% if api_token %}{{ api_token }}{% endif %}"> -->
 
 <div id="funnel">
-    <select id="funnel-select">
-        <option>Not ready...</option>
+    <select id="funnel-select" aria-label="Select funnel">
+        <option disabled selected>Loading…</option>
     </select>
 </div><br/>
 
 <div id="chart"></div><br/>
 
-<script>
-    function fetchStatistics(selectedOption) {
-        fetch(`/api/actions/${selectedOption}/statistics/`)
-            .then(r => {
-                if (!r.ok) throw new Error(`HTTP ${r.status}`);
-                return r.json();
-            })
-            .then(({result}) => {
-                const entries = Object.entries(result)
-                    .flatMap(([group, inner]) =>
-                        Object.entries(inner)
-                            .map(([key, value]) => [`${group} › ${key}`, value])
-                    )
-                    .sort((a, b) => b[1] - a[1]);
+<script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
+<script src="https://code.jquery.com/jquery-4.0.0.min.js"></script>
 
-                Plotly.newPlot('chart', [{
-                    type: 'funnel',
-                    y: entries.map(e => e[0]),
-                    x: entries.map(e => e[1]),
-                    textinfo: 'value+percent initial',
-                }], {title: 'Actions Funnel'}, {responsive: true});
-            })
-            .catch(err => {
-                document.getElementById('chart').innerHTML =
-                    `<p style="color:red">Failed to load chart: ${err.message}</p>`;
-            });
+<script>
+$(document).ready(function () {
+
+    // Build headers once; kept empty if session-cookie auth is used.
+    // If token auth is required, pull it from the hidden input ABOVE
+    // (which the server fills in), never hardcode it in this file.
+    const headers = {};
+    const token = document.getElementById('auth-token')?.value;
+    if (token) {
+        headers['Authorization'] = 'Token ' + token;
     }
 
-    $(document).ready(function() {
-        $.ajaxSetup({
-          headers: {
-            'Authorization': "Token " + "9799acfed25a213b4b5c7a94b4c51ea6a54c08f7"
-          }
+    // Single request helper: all calls go through this, so auth + errors
+    // are handled consistently regardless of fetch/jQuery.
+    function requestJSON(url) {
+        return fetch(url, { headers: headers }).then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
         });
-        fetchStatistics(1)
-        $.get('/api/actions/', function (response) {
-            const options = response.map(action => `<option value="${action.id}">${action.name}</option>`);
-            $('#funnel-select').html(options.join(''));
-        })
-        $('#funnel-select').change(function() {
-            const selectedOption = $(this).val();
-            fetchStatistics(selectedOption);
-        });
-    });
-</script>
+    }
 
+    function renderChart(containerId, data) {
+        const entries = Object.entries(data)
+            .flatMap(([group, inner]) =>
+                Object.entries(inner).map(([key, value]) => ({
+                    label: `${group} › ${key}`,
+                    value: value
+                }))
+            )
+            .sort((a, b) => b.value - a.value);
+
+        Plotly.newPlot(containerId, [{
+            type: 'funnel',
+            y: entries.map(e => e.label),
+            x: entries.map(e => e.value),
+            textinfo: 'value+percent initial'
+        }], { title: 'Actions Funnel' }, { responsive: true });
+    }
+
+    function showChartError(message) {
+        document.getElementById('chart').innerHTML =
+            `<p style="color:red">Failed to load chart: ${message}</p>`;
+    }
+
+    function fetchStatistics(funnelId) {
+        return requestJSON(`/api/actions/${encodeURIComponent(funnelId)}/statistics/`)
+            .then(({ result }) => {
+                if (!result) throw new Error('Unexpected API response');
+                renderChart('chart', result);
+            })
+            .catch(err => showChartError(err.message));
+    }
+
+    // Bind the change handler ONCE, immediately — not inside an async callback.
+    $('#funnel-select').on('change', function () {
+        fetchStatistics($(this).val());
+    });
+
+    // Load the funnel list FIRST, then render the initial chart with the
+    // real first funnel — no race condition, no magic ID 0.
+    requestJSON('/api/funnels/')
+        .then(funnels => {
+            const select = $('#funnel-select').empty();
+            for (const funnel of funnels) {
+                // Build options via DOM APIs → funnel names are treated as
+                // plain text, immune to HTML/script injection.
+                $('<option>')
+                    .attr('value', funnel.id)
+                    .text(funnel.name)
+                    .appendTo(select);
+            }
+            if (funnels.length === 0) {
+                select.append($('<option>').text('No funnels available'));
+                return;
+            }
+            select.val(funnels[0].id);       // select matches what we render
+            return fetchStatistics(funnels[0].id);
+        })
+        .catch(() => {
+            $('#funnel-select').html('<option>Error loading funnels</option>');
+            showChartError('Could not load funnel list');
+        });
+});
+</script>
 
 </body>
 </html>
