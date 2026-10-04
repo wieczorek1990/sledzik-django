@@ -1,9 +1,8 @@
-
+from django.shortcuts import get_object_or_404, render
 from rest_framework import response, views, viewsets
-from django.shortcuts import get_object_or_404
 
 from counting import models, serializers
-from django.shortcuts import render
+
 
 class TenantViewSet(viewsets.ModelViewSet):
     queryset = models.Tenant.objects.all()
@@ -59,13 +58,15 @@ class CounterView(views.APIView):
 
         funnel_actions_dictionary = {
             action.name: action.actioncounter_set.count()
-            for action in funnel.action_set.all()  # noqa
+            for action in funnel.action_set.all()
         }
 
-        return response.Response({
-            "success": "ok",
-            "result": {funnel.name: funnel_actions_dictionary},
-        })
+        return response.Response(
+            {
+                "success": "ok",
+                "result": {funnel.name: funnel_actions_dictionary},
+            }
+        )
 
 
 def index(request):

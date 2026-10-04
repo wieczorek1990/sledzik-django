@@ -18,7 +18,7 @@ urlpatterns = [
     path("", views.index, name="home"),
     path("admin/", admin.site.urls),
     path("auth/", include("rest_framework.urls")),
-    path('auth/token/', rf_views.obtain_auth_token),
+    path("auth/token/", rf_views.obtain_auth_token),
     path("api/", include(router.urls)),
     path("api/funnels/<int:pk>/hit/", views.CounterView.as_view()),
     path("api/funnels/<int:pk>/statistics/", views.CounterView.as_view()),
