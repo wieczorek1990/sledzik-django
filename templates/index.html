@@ -3,23 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <title>Index</title>
-    <!-- Server injects token here IF token auth is unavoidable. Better: omit entirely. -->
-    <!-- <meta name="api-token" content="{{ api_token }}"> -->
     <style>
         body { font-family: system-ui, sans-serif; margin: 40px; }
         #chart { max-width: 900px; height: 500px; }
+        #auth-error { color: red; }
+        #auth-status { color: green; }
     </style>
 </head>
 <body>
-<input type="hidden" id="auth-token" value="{% if api_token %}{{ api_token }}{% endif %}">
 
 <div>
     <form id="login-form">
-        <input type="text" id="username" placeholder="Username">
-        <input type="password" id="password" placeholder="Password">
+        <input type="text" id="username" placeholder="Username" autocomplete="username">
+        <input type="password" id="password" placeholder="Password" autocomplete="current-password">
+        <button id="login" type="submit">Login</button>
+        <button id="logout" type="button">Logout</button>
     </form>
-    <button id="login" type="button">Login</button>
-    <button id="logout" type="button">Logout</button>
+    <p id="auth-message" aria-live="polite"></p>
 </div>
 
 <div id="funnel">
@@ -34,69 +34,91 @@
 <script src="https://code.jquery.com/jquery-4.0.0.min.js"></script>
 
 <script>
-    function authorization() {
-        $("#login").show();
-        $("#logout").hide();
-
-        $("#login").click(function(){
-            let url = "/auth/token/"
-
-            let username = $("#username").val()
-            let password = $("#password").val()
-
-            $("#login").show();
-            $("#logout").hide();
-
-            let data = {
-                username: username,
-                password: password
-            }
-            $.ajax({
-                url: url,
-                type: 'POST',
-                data: data,
-                success: function(data) {
-                    if (data.token) {
-                        window.localStorage.setItem("authorization", data.token)
-                        console.log("Logged in successfully...");
-                        $("#login").hide();
-                        $("#logout").show();
-                    }
-                    else {
-                        console.log("Please try again...");
-                    }
-                }
-            });
-        });
-        $("#logout").click(function() {
-            window.localStorage.removeItem("authorization")
-            console.log("Logged out successfully...");
-            $("#login").show();
-            $("#logout").hide();
-        });
-    }
-
 $(document).ready(function () {
-    authorization();
 
-    // Build headers once; kept empty if session-cookie auth is used.
-    // If token auth is required, pull it from the hidden input ABOVE
-    // (which the server fills in), never hardcode it in this file.
-    const headers = {};
-    // const token = document.getElementById('auth-token')?.value;
-    const token = window.localStorage.getItem("authorization");
-    if (token) {
-        headers['Authorization'] = 'Token ' + token;
+    const $message = $('#auth-message');
+
+    function setMessage(text, isError) {
+        $message.attr('id', isError ? 'auth-error' : 'auth-status')
+                .text(text || '');
     }
 
-    // Single request helper: all calls go through this, so auth + errors
-    // are handled consistently regardless of fetch/jQuery.
+    // ---- Auth -----------------------------------------------------------
+
+    function getToken() {
+        return window.localStorage.getItem('authorization');
+    }
+
+    function updateAuthUI() {
+        const loggedIn = Boolean(getToken());
+        $('#login').toggle(!loggedIn);
+        $('#logout').toggle(loggedIn);
+    }
+
+    function logout(reason) {
+        window.localStorage.removeItem('authorization');
+        updateAuthUI();
+        setMessage(reason || '❖ Logged out.', false);
+        // Reset the data area since we can no longer load it
+        $('#funnel-select').html('<option disabled selected>Log in to continue</option>');
+        showChartError('Not authenticated.');
+    }
+
+    function login(username, password) {
+        fetch('/auth/token/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: username, password: password })
+        })
+        .then(r => {
+            if (!r.ok) throw new Error(r.status === 400 ? 'Wrong username or password.' : `Login failed (HTTP ${r.status})`);
+            return r.json();
+        })
+        .then(data => {
+            if (!data.token) throw new Error('No token in response.');
+            window.localStorage.setItem('authorization', data.token);
+            updateAuthUI();
+            setMessage('❖ Logged in.', false);
+            loadFunnels();                       // actually use the new session
+        })
+        .catch(err => setMessage(err.message, true));
+    }
+
+    $('#login-form').on('submit', function (e) {
+        e.preventDefault();
+        const username = $('#username').val().trim();
+        const password = $('#password').val();
+        if (!username || !password) {
+            setMessage('❖ Enter both username and password.', true);
+            return;
+        }
+        login(username, password);
+    });
+
+    $('#logout').on('click', function () {
+        logout('Logged out.');
+    });
+
+    // ---- API ------------------------------------------------------------
+
+    // Build headers AT REQUEST TIME so a token stored after page load
+    // (i.e. a fresh login) is picked up immediately.
     function requestJSON(url) {
+        const headers = {};
+        const token = getToken();
+        if (token) headers['Authorization'] = 'Token ' + token;
+
         return fetch(url, { headers: headers }).then(r => {
+            if (r.status === 401 || r.status === 403) {
+                logout('Session expired, please log in again.');
+                throw new Error('Not authenticated.');
+            }
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             return r.json();
         });
     }
+
+    // ---- Chart ----------------------------------------------------------
 
     function renderChart(containerId, data) {
         const entries = Object.entries(data)
@@ -130,35 +152,48 @@ $(document).ready(function () {
             .catch(err => showChartError(err.message));
     }
 
-    // Bind the change handler ONCE, immediately — not inside an async callback.
+    // Bind the change handler once, immediately.
     $('#funnel-select').on('change', function () {
         fetchStatistics($(this).val());
     });
 
-    // Load the funnel list FIRST, then render the initial chart with the
-    // real first funnel — no race condition, no magic ID 0.
-    requestJSON('/api/funnels/')
-        .then(funnels => {
-            const select = $('#funnel-select').empty();
-            for (const funnel of funnels) {
-                // Build options via DOM APIs → funnel names are treated as
-                // plain text, immune to HTML/script injection.
-                $('<option>')
-                    .attr('value', funnel.id)
-                    .text(funnel.name)
-                    .appendTo(select);
-            }
-            if (funnels.length === 0) {
-                select.append($('<option>').text('No funnels available'));
-                return;
-            }
-            select.val(funnels[0].id);       // select matches what we render
-            return fetchStatistics(funnels[0].id);
-        })
-        .catch(() => {
-            $('#funnel-select').html('<option>Error loading funnels</option>');
-            showChartError('Could not load funnel list');
-        });
+    // ---- Initialization --------------------------------------------------
+
+    function loadFunnels() {
+        return requestJSON('/api/funnels/')
+            .then(funnels => {
+                const select = $('#funnel-select').empty();
+                if (funnels.length === 0) {
+                    select.append($('<option>').text('No funnels available'));
+                    return;
+                }
+                for (const funnel of funnels) {
+                    $('<option>')
+                        .attr('value', funnel.id)
+                        .text(funnel.name)
+                        .appendTo(select);
+                }
+                select.val(funnels[0].id);       // select matches what we render
+                return fetchStatistics(funnels[0].id);
+            })
+            .catch(err => {
+                // 401/403 already handled in requestJSON (logout UI shown);
+                // only show a generic error for other failures.
+                if (err.message !== 'Not authenticated.') {
+                    $('#funnel-select').html('<option>Error loading funnels</option>');
+                    showChartError('Could not load funnel list');
+                }
+            });
+    }
+
+    updateAuthUI();
+
+    if (getToken()) {
+        loadFunnels();      // returning visitor with a valid token
+    } else {
+        $('#funnel-select').html('<option disabled selected>Log in to continue</option>');
+        setMessage('❖ Please log in.', false);
+    }
 });
 </script>
 
