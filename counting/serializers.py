@@ -6,13 +6,13 @@ from counting import models
 class TenantSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Tenant
-        fields = ("name",)
+        fields = ("id", "name",)
 
 
 class ProjectSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Project
-        fields = ("name", "tenant")
+        fields = ("id", "name", "tenant")
 
     def validate_tenant(self, value):
         # value is the Tenant object passed in the request
@@ -24,7 +24,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 class FunnelSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Funnel
-        fields = ("name", "project")
+        fields = ("id", "name", "project")
 
     def validate_project(self, value):
         # value is the Project object
@@ -36,7 +36,7 @@ class FunnelSerializer(serializers.ModelSerializer):
 class ActionSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Action
-        fields = ("name", "funnel")
+        fields = ("id", "name", "funnel")
 
     def validate_funnel(self, value):
         # value is the Funnel object
@@ -48,7 +48,7 @@ class ActionSerializer(serializers.ModelSerializer):
 class ActionCounterSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.ActionCounter
-        fields = ("action", "created")
+        fields = ("id", "action", "created")
 
     def validate_action(self, value):
         # value is the Action object
