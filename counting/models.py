@@ -5,12 +5,7 @@ from django.db import models
 
 class Tenant(models.Model):
     name = models.CharField(max_length=255, unique=True)
-    token = models.CharField(max_length=255, unique=True)
-
-    def save(self, *args, **kwargs):
-        if not self.token:
-            self.token = uuid.uuid4()
-        super().save(*args, **kwargs)
+    token = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
 
     def __str__(self) -> str:
         return f"{self.name}"
