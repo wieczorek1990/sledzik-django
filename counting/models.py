@@ -42,7 +42,7 @@ class Action(models.Model):
     funnel = models.ForeignKey(Funnel, on_delete=models.CASCADE)
 
     def __str__(self) -> str:
-        return f"{self.funnel.name}: {self.name}"
+        return f"{self.pk}: {self.funnel.name}: {self.name}"
 
     class Meta:
         unique_together = ("name", "funnel")
