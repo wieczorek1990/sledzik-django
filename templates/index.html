@@ -44,6 +44,7 @@
     </select>
 </div><br/>
 
+<p id="chart-error" style="color:red" hidden></p>
 <div id="chart"></div><br/>
 
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
@@ -53,6 +54,10 @@
 $(document).ready(function () {
 
     const $message = $('#auth-message');
+
+    // Increments on every login/logout; responses from an older
+    // generation are discarded so stale fetches can't touch the DOM.
+    let sessionGen = 0;
 
     function setMessage(text, isError) {
         $message.attr('id', isError ? 'auth-error' : 'auth-status')
@@ -72,6 +77,7 @@ $(document).ready(function () {
     }
 
     function logout(reason) {
+        sessionGen++;   // invalidate all in-flight requests
         window.localStorage.removeItem('authorization');
         updateAuthUI();
         setMessage(reason || '❖ Logged out.', false);
@@ -95,6 +101,7 @@ $(document).ready(function () {
         .then(data => {
             if (!data.token) throw new Error('No token in response.');
             window.localStorage.setItem('authorization', data.token);
+            sessionGen++;   // start a fresh session generation
             updateAuthUI();
             setMessage('❖ Logged in.', false);
             loadTenants();                     // actually use the new session
@@ -139,6 +146,7 @@ $(document).ready(function () {
     // ---- Chart ----------------------------------------------------------
 
     function renderChart(containerId, data) {
+        document.getElementById('chart-error').hidden = true;
         const entries = Object.entries(data)
             .flatMap(([group, inner]) =>
                 Object.entries(inner).map(([key, value]) => ({
@@ -153,21 +161,34 @@ $(document).ready(function () {
             y: entries.map(e => e.label),
             x: entries.map(e => e.value),
             textinfo: 'value+percent initial'
-        }], { title: '❖ Actions Funnel' }, { responsive: true });
+        }], {
+            title: '❖ Actions Funnel',
+            height: 500,                                  // more vertical room for stages
+            margin: { l: 150, r: 50, t: 60, b: 40 },      // widen left margin for labels
+            yaxis: { automargin: true }                   // auto-fit label width
+        }, { responsive: true });
     }
 
     function showChartError(message) {
-        document.getElementById('chart').innerHTML =
-            `<p style="color:red">Failed to load chart: ${message}</p>`;
+        Plotly.purge('chart');              // cleanly remove Plotly DOM/state
+        const el = document.getElementById('chart-error');
+        el.textContent = `Failed to load chart: ${message}`;
+        el.hidden = false;
     }
 
     function fetchStatistics(funnelId) {
+        const gen = sessionGen;
         return requestJSON(`/api/funnels/${encodeURIComponent(funnelId)}/statistics/`)
             .then(({ result }) => {
+                if (gen !== sessionGen) return;          // stale response — drop it
                 if (!result) throw new Error('Unexpected API response');
                 renderChart('chart', result);
             })
-            .catch(err => showChartError(err.message));
+            .catch(err => {
+                if (gen === sessionGen && err.message !== 'Not authenticated.') {
+                    showChartError(err.message);
+                }
+            });
     }
 
     // ---- Cascade selectors ----------------------------------------------
@@ -190,8 +211,10 @@ $(document).ready(function () {
     // ---- Initialization --------------------------------------------------
 
     function loadTenants() {
+        const gen = sessionGen;
         return requestJSON('/api/tenants/')
             .then(tenants => {
+                if (gen !== sessionGen) return;          // stale response — drop it
                 const select = $('#tenant-select').empty();
                 if (tenants.length === 0) {
                     select.append($('<option>').text('❖ No tenants available'));
@@ -209,7 +232,7 @@ $(document).ready(function () {
                 return loadProjects(tenants[0].id);
             })
             .catch(err => {
-                if (err.message !== 'Not authenticated.') {
+                if (gen === sessionGen && err.message !== 'Not authenticated.') {
                     $('#tenant-select').html('<option>Error loading tenants</option>');
                     showChartError('❖ Could not load tenant list');
                 }
@@ -217,10 +240,12 @@ $(document).ready(function () {
     }
 
     function loadProjects(tenantId) {
+        const gen = sessionGen;
         $('#project-select').html('<option disabled selected>Loading…</option>');
         $('#funnel-select').html('<option disabled selected>—</option>');
         return requestJSON(`/api/projects/?tenant=${encodeURIComponent(tenantId)}`)
             .then(projects => {
+                if (gen !== sessionGen) return;          // stale response — drop it
                 const select = $('#project-select').empty();
                 if (projects.length === 0) {
                     select.append($('<option>').text('❖ No projects available'));
@@ -238,7 +263,7 @@ $(document).ready(function () {
                 return loadFunnels(projects[0].id);
             })
             .catch(err => {
-                if (err.message !== 'Not authenticated.') {
+                if (gen === sessionGen && err.message !== 'Not authenticated.') {
                     $('#project-select').html('<option>Error loading projects</option>');
                     showChartError('❖ Could not load project list');
                 }
@@ -246,9 +271,11 @@ $(document).ready(function () {
     }
 
     function loadFunnels(projectId) {
+        const gen = sessionGen;
         $('#funnel-select').html('<option disabled selected>Loading…</option>');
         return requestJSON(`/api/funnels/?project=${encodeURIComponent(projectId)}`)
             .then(funnels => {
+                if (gen !== sessionGen) return;          // stale response — drop it
                 const select = $('#funnel-select').empty();
                 if (funnels.length === 0) {
                     select.append($('<option>').text('❖ No funnels available'));
@@ -265,7 +292,7 @@ $(document).ready(function () {
                 return fetchStatistics(funnels[0].id);
             })
             .catch(err => {
-                if (err.message !== 'Not authenticated.') {
+                if (gen === sessionGen && err.message !== 'Not authenticated.') {
                     $('#funnel-select').html('<option>Error loading funnels</option>');
                     showChartError('❖ Could not load funnel list');
                 }
