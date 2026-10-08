@@ -4,10 +4,10 @@
     <content url="file://$MODULE_DIR$">
       <sourceFolder url="file://$MODULE_DIR$" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
+      <excludeFolder url="file://$MODULE_DIR$/activate" />
     </content>
     <orderEntry type="jdk" jdkName="/opt/bin/python3.16" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module" module-name="Lumo" />
   </component>
   <component name="PyDocumentationSettings">
     <option name="format" value="PLAIN" />
