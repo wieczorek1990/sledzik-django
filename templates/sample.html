@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Sample.</title>
+</head>
+<body>
+It works!
+<script src="https://code.jquery.com/jquery-4.0.0.min.js"></script>
+<script src="/index.js/" id="sledzik-script"></script>
+<script>
+    const TOKEN = "ed74e235-7a7f-4190-b3c9-6a04258ed899";
+
+    const ACTIONS = {
+        ready: 1,
+        email: 2,
+    };
+
+    const action_ready_url = window.Śledzik.getUrl(ACTIONS.ready)
+    const action_email_url = window.Śledzik.getUrl(ACTIONS.email)
+
+    function run() {
+        console.log("Running...");
+        window.Śledzik.hit(action_ready_url, TOKEN, function() {
+            console.log("Hit successful.");
+        })
+        window.Śledzik.hit(action_email_url, TOKEN, function() {
+            console.log("Hit successful.");
+        })
+    }
+    $(document).ready(function () {
+        run();
+    })
+</script>
+</body>
+</html>

@@ -112,9 +112,9 @@ def index(request):
     return render(request, "index.html")
 
 
-def index_js(request):
-    return render(request, "index.js")
+def extension(request):
+    return render(request, "extension.js", content_type="application/javascript")
 
 
-def tests(request):
-    return render(request, "tests.html")
+def sample(request):
+    return render(request, "sample.html")
