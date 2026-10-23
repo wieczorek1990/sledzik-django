@@ -50,6 +50,11 @@ class Action(models.Model):
 
 class ActionCounter(models.Model):
     action = models.ForeignKey(Action, on_delete=models.CASCADE)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="action_counters",
+    )
     created = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
