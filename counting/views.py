@@ -75,7 +75,8 @@ class ActionsCounterView(views.APIView):
             return response.Response(status=401, data={"failure": "token not present"})
 
         try:
-            submitted = uuid.UUID(str(token))
+            token_string = str(token)
+            submitted = uuid.UUID(token_string)
         except ValueError:
             return response.Response(status=401, data={"failure": "invalid token"})
 
@@ -86,7 +87,7 @@ class ActionsCounterView(views.APIView):
                 status=401, data={"failure": "invalid authorization"}
             )
 
-        models.ActionCounter.objects.create(action=action)
+        models.ActionCounter.objects.create(action=action, user=request.user)
 
         return response.Response({"success": "ok"})
 
@@ -97,7 +98,7 @@ class FunnelStatisticsView(views.APIView):
             models.Funnel.objects.filter(project__tenant__owner=request.user), pk=pk
         )
 
-        funnel_actions = funnel.action_set.annotate(n=Count("actioncounter"))
+        funnel_actions = funnel.action_set.annotate(n=Count("action_counters"))
         funnel_actions_dictionary = {a.name: a.n for a in funnel_actions}
 
         return response.Response(
