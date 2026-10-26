@@ -47,8 +47,8 @@
 <div id="chart-controls" style="margin-bottom: 12px;">
     <span style="font-weight: bold; margin-right: 8px;">Chart view:</span>
     <label style="cursor: pointer; margin-right: 16px;">
-        <input type="radio" name="chart-type" value="timeseries" checked>
-        Action Counters Over Time
+        <input type="radio" name="chart-type" value="histogram" checked>
+        Action Counters Histogram
     </label>
     <label style="cursor: pointer;">
         <input type="radio" name="chart-type" value="funnel">
@@ -166,7 +166,7 @@ $(document).ready(function () {
         if (chartType === 'funnel') {
             renderFunnelChart('chart', currentStats.result);
         } else {
-            renderTimeSeriesChart('chart', currentStats.time_series, currentStats.result);
+            renderHistogramChart('chart', currentStats.time_series, currentStats.result);
         }
     }
 
@@ -196,13 +196,13 @@ $(document).ready(function () {
         }, { responsive: true });
     }
 
-    function renderTimeSeriesChart(containerId, timeSeriesData, resultData) {
+    function renderHistogramChart(containerId, timeSeriesData, resultData) {
         document.getElementById('chart-error').hidden = true;
         const funnelName = Object.keys(resultData || {})[0] || '';
 
         if (!timeSeriesData || timeSeriesData.length === 0) {
             Plotly.newPlot(containerId, [], {
-                title: funnelName ? `❖ Action Counters Over Time (${funnelName})` : '❖ Action Counters Over Time',
+                title: funnelName ? `❖ Action Counters Histogram (${funnelName})` : '❖ Action Counters Histogram',
                 annotations: [{
                     text: '❖ No action counters recorded yet.',
                     xref: 'paper',
@@ -232,16 +232,15 @@ $(document).ready(function () {
             name: actionName,
             x: data.dates,
             y: data.counts,
-            type: 'scatter',
-            mode: 'lines+markers',
-            marker: { size: 8 },
-            line: { shape: 'linear' }
+            histfunc: 'sum',
+            type: 'histogram'
         }));
 
         Plotly.newPlot(containerId, traces, {
-            title: funnelName ? `❖ Action Counters Over Time (${funnelName})` : '❖ Action Counters Over Time',
+            title: funnelName ? `❖ Action Counters Histogram (${funnelName})` : '❖ Action Counters Histogram',
             xaxis: { title: 'Date' },
             yaxis: { title: 'Hits / Count', rangemode: 'tozero' },
+            barmode: 'group',
             height: 500,
             margin: { l: 60, r: 50, t: 60, b: 60 }
         }, { responsive: true });

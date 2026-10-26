@@ -125,7 +125,7 @@ class AuthAndActionsCounterTest(TestCase):
 
         resp_index = self.client.get("/")
         self.assertEqual(resp_index.status_code, 200)
-        self.assertIn(b"Action Counters Over Time", resp_index.content)
+        self.assertIn(b"Action Counters Histogram", resp_index.content)
 
     def test_funnel_statistics_empty_time_series(self):
         url = f"/api/funnels/{self.funnel.pk}/statistics/"

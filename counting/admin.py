@@ -9,6 +9,7 @@ class TenantAdmin(admin.ModelAdmin):
 
 class ActionCounterAdmin(admin.ModelAdmin):
     list_filter = ("created",)
+    readonly_fields = ("created",)
 
 
 admin.site.register(models.Tenant, TenantAdmin)
