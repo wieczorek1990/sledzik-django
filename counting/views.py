@@ -1,5 +1,6 @@
 import uuid
 
+from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Count
 from django.db.models.functions import TruncDate, TruncHour, TruncMonth
 from django.shortcuts import get_object_or_404, render
@@ -160,6 +161,7 @@ class FunnelStatisticsView(views.APIView):
         )
 
 
+@staff_member_required
 def index(request):
     return render(request, "index.html")
 

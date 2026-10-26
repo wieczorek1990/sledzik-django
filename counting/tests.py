@@ -15,6 +15,9 @@ class AuthAndActionsCounterTest(TestCase):
         self.user = User.objects.create_user(
             username="luke", password="super", email="luke@soiree.tech"
         )
+        self.staff_user = User.objects.create_user(
+            username="admin_user", password="super", is_staff=True
+        )
         self.token = Token.objects.create(user=self.user)
 
         self.tenant = models.Tenant.objects.create(name="Tenant 1", owner=self.user)
@@ -213,11 +216,25 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(resp_ext.status_code, 200)
         self.assertEqual(resp_ext["Content-Type"], "application/javascript")
 
-        resp_index = self.client.get("/")
-        self.assertEqual(resp_index.status_code, 200)
-        self.assertIn(b"Action Counters Over Time", resp_index.content)
-        self.assertIn(b'id="chart-section"', resp_index.content)
-        self.assertIn(b'style="display: none;"', resp_index.content)
+    def test_main_page_requires_staff_account(self):
+        # Anonymous user should be redirected
+        resp_anon = self.client.get("/")
+        self.assertEqual(resp_anon.status_code, 302)
+        self.assertIn("/admin/login/", resp_anon["Location"])
+
+        # Non-staff authenticated user should also be redirected
+        self.client.force_login(self.user)
+        resp_non_staff = self.client.get("/")
+        self.assertEqual(resp_non_staff.status_code, 302)
+        self.assertIn("/admin/login/", resp_non_staff["Location"])
+
+        # Staff user should be granted access
+        self.client.force_login(self.staff_user)
+        resp_staff = self.client.get("/")
+        self.assertEqual(resp_staff.status_code, 200)
+        self.assertIn(b"Action Counters Over Time", resp_staff.content)
+        self.assertIn(b'id="chart-section"', resp_staff.content)
+        self.assertIn(b'style="display: none;"', resp_staff.content)
 
     def test_funnel_statistics_empty_time_series(self):
         url = f"/api/funnels/{self.funnel.pk}/statistics/"
