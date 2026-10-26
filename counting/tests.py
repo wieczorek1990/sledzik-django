@@ -74,6 +74,20 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(response.json(), {"failure": "token not present"})
         self.assertEqual(models.ActionCounter.objects.count(), 0)
 
+    def test_action_hit_authenticated_empty_token(self):
+        url = f"/api/actions/{self.action.pk}/hit/"
+        for empty_val in ["", "   ", None]:
+            with self.subTest(empty_val=empty_val):
+                response = self.client.post(
+                    url,
+                    data={"token": empty_val},
+                    content_type="application/json",
+                    HTTP_AUTHORIZATION=f"Token {self.token.key}",
+                )
+                self.assertEqual(response.status_code, 401)
+                self.assertEqual(response.json(), {"failure": "token not present"})
+                self.assertEqual(models.ActionCounter.objects.count(), 0)
+
     def test_action_hit_authenticated_invalid_token_format(self):
         url = f"/api/actions/{self.action.pk}/hit/"
         response = self.client.post(
@@ -118,6 +132,8 @@ class AuthAndActionsCounterTest(TestCase):
         resp_sample = self.client.get("/sample/")
         self.assertEqual(resp_sample.status_code, 200)
         self.assertIn(b"/api/auth/", resp_sample.content)
+        self.assertIn(b'id="token"', resp_sample.content)
+        self.assertIn(b"Hit", resp_sample.content)
 
         resp_ext = self.client.get("/extension/")
         self.assertEqual(resp_ext.status_code, 200)
@@ -125,7 +141,7 @@ class AuthAndActionsCounterTest(TestCase):
 
         resp_index = self.client.get("/")
         self.assertEqual(resp_index.status_code, 200)
-        self.assertIn(b"Action Counters Histogram", resp_index.content)
+        self.assertIn(b"Action Counters Over Time", resp_index.content)
 
     def test_funnel_statistics_empty_time_series(self):
         url = f"/api/funnels/{self.funnel.pk}/statistics/"

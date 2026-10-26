@@ -69,13 +69,13 @@ class ActionsCounterView(views.APIView):
     def post(self, request, pk=None):
         token = request.data.get("token")
 
-        if not token:
+        if not token or (isinstance(token, str) and not token.strip()):
             return response.Response(status=401, data={"failure": "token not present"})
 
         try:
-            token_string = str(token)
+            token_string = str(token).strip()
             submitted = uuid.UUID(token_string)
-        except ValueError:
+        except (ValueError, AttributeError):
             return response.Response(status=401, data={"failure": "invalid token"})
 
         action = self.get_object()  # only touch the DB once we have a plausible token

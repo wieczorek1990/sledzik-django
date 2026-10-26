@@ -11,7 +11,15 @@ window.Śledzik = (function () {
     }
 
     function hit(url, token, callback, userAuthToken) {
-        const payload = JSON.stringify({ token: token });
+        if (!token || (typeof token === "string" && !token.trim())) {
+            const error = new Error("Token cannot be empty");
+            if (typeof callback === "function") {
+                callback({ ok: false, status: 400, statusText: "Bad Request", error: error });
+            }
+            return Promise.reject(error);
+        }
+
+        const payload = JSON.stringify({ token: typeof token === "string" ? token.trim() : token });
         const headers = { "Content-Type": "application/json" };
         const auth = userAuthToken || authToken || window.localStorage.getItem("authorization");
         if (auth) {

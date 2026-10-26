@@ -6,10 +6,17 @@
 </head>
 <body>
 It works!
+<div style="margin-top: 15px;">
+    <label for="token">Token: </label>
+    <input type="text" id="token" name="token" value="" size="40">
+    <button id="hit" type="button">Hit</button>
+</div>
+<div id="status" style="margin-top: 10px;"></div>
+
 <script src="https://code.jquery.com/jquery-4.0.0.min.js"></script>
 <script src="/extension/" id="sledzik-script"></script>
 <script>
-    const TOKEN = "81506377-40d1-4636-bb9d-50451b62a6c0";
+    const DEFAULT_TOKEN = null;
 
     const ACTIONS = {
         ready: 1,
@@ -19,14 +26,45 @@ It works!
     const action_ready_url = window.Śledzik.getUrl(ACTIONS.ready);
     const action_email_url = window.Śledzik.getUrl(ACTIONS.email);
 
-    function run(authToken) {
-        console.log("Running...");
-        window.Śledzik.hit(action_ready_url, TOKEN, function() {
-            console.log("Hit successful.");
-        }, authToken);
-        window.Śledzik.hit(action_email_url, TOKEN, function() {
-            console.log("Hit successful.");
-        }, authToken);
+    let currentAuthToken = null;
+
+    function run(authToken, tokenValue) {
+        const tokenInput = tokenValue !== undefined ? tokenValue : $("#token").val();
+        const token = (tokenInput && typeof tokenInput === "string") ? tokenInput.trim() : (tokenInput || DEFAULT_TOKEN);
+
+        if (!token) {
+            $("#status").text("Error: Token cannot be empty. Hits will not be sent.");
+            console.error("Token is empty. Hits will not be sent.");
+            return;
+        }
+
+        console.log("Running hits with token:", token);
+        $("#status").text("Sending hits...");
+        Promise.all([
+            window.Śledzik.hit(action_ready_url, token, function(res) {
+                if (res && res.ok) {
+                    console.log("Hit ready successful.");
+                } else {
+                    console.error("Hit ready failed.");
+                }
+            }, authToken),
+            window.Śledzik.hit(action_email_url, token, function(res) {
+                if (res && res.ok) {
+                    console.log("Hit email successful.");
+                } else {
+                    console.error("Hit email failed.");
+                }
+            }, authToken)
+        ]).then(function(responses) {
+            const allOk = responses.every(function(r) { return r && r.ok; });
+            if (allOk) {
+                $("#status").text("Hits sent successfully!");
+            } else {
+                $("#status").text("Hits failed (e.g. invalid or rejected token).");
+            }
+        }).catch(function(err) {
+            $("#status").text("Error sending hits: " + (err.message || err));
+        });
     }
 
     function authorize(username, password) {
@@ -45,6 +83,7 @@ It works!
             if (window.Śledzik.setAuthToken) {
                 window.Śledzik.setAuthToken(data.token);
             }
+            currentAuthToken = data.token;
             return data.token;
         });
     }
@@ -52,11 +91,27 @@ It works!
     $(document).ready(function () {
         authorize("luke", "super")
             .then(function(authToken) {
-                run(authToken);
+                console.log("Authorized successfully.");
             })
             .catch(function(err) {
                 console.error("Auth error:", err);
             });
+
+        $("#hit").on("click", function() {
+            const tokenVal = $("#token").val();
+            if (currentAuthToken) {
+                run(currentAuthToken, tokenVal);
+            } else {
+                authorize("luke", "super")
+                    .then(function(authToken) {
+                        run(authToken, tokenVal);
+                    })
+                    .catch(function(err) {
+                        console.error("Auth error:", err);
+                        $("#status").text("Auth error: " + err);
+                    });
+            }
+        });
     });
 </script>
 </body>
