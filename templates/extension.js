@@ -1,5 +1,5 @@
 window.Śledzik = (function () {
-    const BASE = "http://śledzik.pl:8000";
+    const BASE = "http://sledzik.soiree.tech:8000";
     let authToken = null;
 
     function setAuthToken(token) {
