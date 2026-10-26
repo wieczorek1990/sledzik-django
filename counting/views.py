@@ -3,9 +3,25 @@ import uuid
 from django.db.models import Count
 from django.db.models.functions import TruncDate, TruncHour, TruncMonth
 from django.shortcuts import get_object_or_404, render
-from rest_framework import response, views, viewsets
+from rest_framework import permissions, response, views, viewsets
+from rest_framework.authtoken.models import Token
 
 from counting import models, serializers
+
+
+class RegisterView(views.APIView):
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        serializer = serializers.RegisterSerializer(data=request.data)
+        if serializer.is_valid():
+            user = serializer.save()
+            token, _ = Token.objects.get_or_create(user=user)
+            return response.Response(
+                {"token": token.key, "username": user.username, "id": user.id},
+                status=201,
+            )
+        return response.Response(serializer.errors, status=400)
 
 
 class TenantViewSet(viewsets.ModelViewSet):

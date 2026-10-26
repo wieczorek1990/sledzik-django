@@ -52,6 +52,79 @@ class AuthAndActionsCounterTest(TestCase):
         )
         self.assertEqual(response.status_code, 400)
 
+    def test_api_register_success(self):
+        response = self.client.post(
+            "/api/register/",
+            data={
+                "username": "newuser",
+                "password": "secretpassword",
+                "email": "newuser@example.com",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(data["username"], "newuser")
+        self.assertIn("token", data)
+        self.assertTrue(User.objects.filter(username="newuser").exists())
+
+        # Verify token works for authorization
+        registered_user = User.objects.get(username="newuser")
+        self.assertEqual(Token.objects.get(user=registered_user).key, data["token"])
+
+    def test_api_register_no_slash_success(self):
+        response = self.client.post(
+            "/api/register",
+            data={
+                "username": "newuser_noslash",
+                "password": "secretpassword",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertEqual(data["username"], "newuser_noslash")
+        self.assertIn("token", data)
+        self.assertTrue(User.objects.filter(username="newuser_noslash").exists())
+
+    def test_api_register_duplicate_username(self):
+        response = self.client.post(
+            "/api/register/",
+            data={
+                "username": "luke",
+                "password": "secretpassword",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+    def test_action_hit_with_registered_user(self):
+        reg_response = self.client.post(
+            "/api/register/",
+            data={
+                "username": "tracker_user",
+                "password": "tracker_password",
+            },
+            content_type="application/json",
+        )
+        self.assertEqual(reg_response.status_code, 201)
+        user_token = reg_response.json()["token"]
+        registered_user = User.objects.get(username="tracker_user")
+
+        url = f"/api/actions/{self.action.pk}/hit/"
+        response = self.client.post(
+            url,
+            data={"token": str(self.tenant.token)},
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Token {user_token}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), {"success": "ok"})
+        self.assertEqual(models.ActionCounter.objects.count(), 1)
+        counter = models.ActionCounter.objects.first()
+        self.assertEqual(counter.action, self.action)
+        self.assertEqual(counter.user, registered_user)
+
     def test_action_hit_unauthenticated(self):
         url = f"/api/actions/{self.action.pk}/hit/"
         response = self.client.post(
@@ -131,6 +204,7 @@ class AuthAndActionsCounterTest(TestCase):
     def test_sample_and_extension_views(self):
         resp_sample = self.client.get("/sample/")
         self.assertEqual(resp_sample.status_code, 200)
+        self.assertIn(b"/api/register/", resp_sample.content)
         self.assertIn(b"/api/auth/", resp_sample.content)
         self.assertIn(b'id="token"', resp_sample.content)
         self.assertIn(b"Hit", resp_sample.content)

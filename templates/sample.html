@@ -11,6 +11,7 @@ It works!
     <input type="text" id="token" name="token" value="" size="40">
     <button id="hit" type="button">Hit</button>
 </div>
+<div id="user-info" style="margin-top: 10px; font-weight: bold;"></div>
 <div id="status" style="margin-top: 10px;"></div>
 
 <script src="https://code.jquery.com/jquery-4.0.0.min.js"></script>
@@ -27,6 +28,7 @@ It works!
     const action_email_url = window.Śledzik.getUrl(ACTIONS.email);
 
     let currentAuthToken = null;
+    let currentUser = null;
 
     function run(authToken, tokenValue) {
         const tokenInput = tokenValue !== undefined ? tokenValue : $("#token").val();
@@ -67,6 +69,49 @@ It works!
         });
     }
 
+    function register(username, password, email) {
+        return fetch("/api/register/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: username,
+                password: password,
+                email: email || `${username}@example.com`
+            })
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                return response.json().then(function(err) {
+                    throw new Error(JSON.stringify(err));
+                });
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            if (window.Śledzik.setAuthToken) {
+                window.Śledzik.setAuthToken(data.token);
+            }
+            currentAuthToken = data.token;
+            currentUser = data.username;
+            $("#user-info").text("Registered & authorized as: " + data.username);
+            return data.token;
+        });
+    }
+
+    function registerOrAuthorize() {
+        const uniqueUsername = "user_" + Math.random().toString(36).substring(2, 10);
+        const password = "sample_password_123";
+        return register(uniqueUsername, password)
+            .then(function(authToken) {
+                console.log("Registered and authorized successfully as:", uniqueUsername);
+                return authToken;
+            })
+            .catch(function(err) {
+                console.warn("Registration failed, falling back to auth:", err);
+                return authorize("luke", "super");
+            });
+    }
+
     function authorize(username, password) {
         return fetch("/api/auth/", {
             method: "POST",
@@ -84,17 +129,20 @@ It works!
                 window.Śledzik.setAuthToken(data.token);
             }
             currentAuthToken = data.token;
+            currentUser = username;
+            $("#user-info").text("Authorized as: " + username);
             return data.token;
         });
     }
 
     $(document).ready(function () {
-        authorize("luke", "super")
+        registerOrAuthorize()
             .then(function(authToken) {
-                console.log("Authorized successfully.");
+                console.log("Ready to send authorized requests.");
             })
             .catch(function(err) {
-                console.error("Auth error:", err);
+                console.error("Registration/Auth error:", err);
+                $("#status").text("Registration/Auth error: " + err);
             });
 
         $("#hit").on("click", function() {
@@ -102,7 +150,7 @@ It works!
             if (currentAuthToken) {
                 run(currentAuthToken, tokenVal);
             } else {
-                authorize("luke", "super")
+                registerOrAuthorize()
                     .then(function(authToken) {
                         run(authToken, tokenVal);
                     })

@@ -24,6 +24,7 @@ urlpatterns = [
     path("auth/", include("rest_framework.urls")),
     path("auth/token/", rf_views.obtain_auth_token),
     re_path(r"^api/auth/?$", rf_views.obtain_auth_token, name="api-auth"),
+    re_path(r"^api/register/?$", views.RegisterView.as_view(), name="api-register"),
     path("api/", include(router.urls)),
     path("api/actions/<int:pk>/hit/", views.ActionsCounterView.as_view()),
     path("api/funnels/<int:pk>/statistics/", views.FunnelStatisticsView.as_view()),
