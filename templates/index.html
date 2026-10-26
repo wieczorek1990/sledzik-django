@@ -44,20 +44,22 @@
     </select>
 </div><br/>
 
-<div id="chart-controls" style="margin-bottom: 12px;">
-    <span style="font-weight: bold; margin-right: 8px;">Chart view:</span>
-    <label style="cursor: pointer; margin-right: 16px;">
-        <input type="radio" name="chart-type" value="timeseries" checked>
-        Action Counters Over Time
-    </label>
-    <label style="cursor: pointer;">
-        <input type="radio" name="chart-type" value="funnel">
-        Funnel
-    </label>
-</div>
+<div id="chart-section" style="display: none;">
+    <div id="chart-controls" style="margin-bottom: 12px;">
+        <span style="font-weight: bold; margin-right: 8px;">Chart view:</span>
+        <label style="cursor: pointer; margin-right: 16px;">
+            <input type="radio" name="chart-type" value="timeseries" checked>
+            Action Counters Over Time
+        </label>
+        <label style="cursor: pointer;">
+            <input type="radio" name="chart-type" value="funnel">
+            Funnel
+        </label>
+    </div>
 
-<p id="chart-error" style="color:red" hidden></p>
-<div id="chart"></div><br/>
+    <p id="chart-error" style="color:red" hidden></p>
+    <div id="chart"></div>
+</div><br/>
 
 <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
 <script src="https://code.jquery.com/jquery-4.0.0.min.js"></script>
@@ -85,7 +87,14 @@ $(document).ready(function () {
     function updateAuthUI() {
         const loggedIn = Boolean(getToken());
         $('#login').toggle(!loggedIn);
+        $('#username').toggle(!loggedIn);
+        $('#password').toggle(!loggedIn);
         $('#logout').toggle(loggedIn);
+        $('#chart-section').toggle(loggedIn);
+        if (!loggedIn) {
+            $('#chart-error').hide();
+            Plotly.purge('chart');
+        }
     }
 
     function logout(reason) {
@@ -98,7 +107,6 @@ $(document).ready(function () {
         $('#tenant-select').html('<option disabled selected>Log in to continue</option>');
         $('#project-select').html('<option disabled selected>Log in to continue</option>');
         $('#funnel-select').html('<option disabled selected>Log in to continue</option>');
-        showChartError('❖ Not authenticated.');
     }
 
     function login(username, password) {

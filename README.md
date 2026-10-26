@@ -1,6 +1,6 @@
 # Śledzik
 
-Hosts (/etc/hosts file):
+Hosts append (`/etc/hosts`):
 
 ```
 127.0.0.1 sledzik.soiree.tech
