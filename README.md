@@ -6,7 +6,7 @@ Hosts (/etc/hosts file):
 127.0.0.1 sledzik.soiree.tech
 ```
 
-Seriuos pages:
+Serious pages:
 
 ```
 http://sledzik.soiree.tech:8000/admin/
