@@ -6,7 +6,7 @@
       <excludeFolder url="file://$MODULE_DIR$/.venv" />
       <excludeFolder url="file://$MODULE_DIR$/activate" />
     </content>
-    <orderEntry type="jdk" jdkName="/opt/bin/python3.16" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="~/Software/sledzik-django/.venv" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">
