@@ -58,9 +58,6 @@ class ActionCounterViewSet(viewsets.ModelViewSet):
 
 
 class ActionsCounterView(views.APIView):
-    authentication_classes = ()
-    permission_classes = ()
-
     def get_object(self):
         pk = self.kwargs.get("pk")
         action = get_object_or_404(

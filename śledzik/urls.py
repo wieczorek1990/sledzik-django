@@ -1,7 +1,7 @@
 from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
-from django.urls import include, path
+from django.urls import include, path, re_path
 from rest_framework import routers
 from rest_framework.authtoken import views as rf_views
 
@@ -23,6 +23,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("auth/", include("rest_framework.urls")),
     path("auth/token/", rf_views.obtain_auth_token),
+    re_path(r"^api/auth/?$", rf_views.obtain_auth_token, name="api-auth"),
     path("api/", include(router.urls)),
     path("api/actions/<int:pk>/hit/", views.ActionsCounterView.as_view()),
     path("api/funnels/<int:pk>/statistics/", views.FunnelStatisticsView.as_view()),

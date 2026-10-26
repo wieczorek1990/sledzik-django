@@ -16,21 +16,48 @@ It works!
         email: 2,
     };
 
-    const action_ready_url = window.Śledzik.getUrl(ACTIONS.ready)
-    const action_email_url = window.Śledzik.getUrl(ACTIONS.email)
+    const action_ready_url = window.Śledzik.getUrl(ACTIONS.ready);
+    const action_email_url = window.Śledzik.getUrl(ACTIONS.email);
 
-    function run() {
+    function run(authToken) {
         console.log("Running...");
         window.Śledzik.hit(action_ready_url, TOKEN, function() {
             console.log("Hit successful.");
-        })
+        }, authToken);
         window.Śledzik.hit(action_email_url, TOKEN, function() {
             console.log("Hit successful.");
-        })
+        }, authToken);
     }
+
+    function authorize(username, password) {
+        return fetch("/api/auth/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username: username, password: password })
+        })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error("Authorization failed");
+            }
+            return response.json();
+        })
+        .then(function(data) {
+            if (window.Śledzik.setAuthToken) {
+                window.Śledzik.setAuthToken(data.token);
+            }
+            return data.token;
+        });
+    }
+
     $(document).ready(function () {
-        run();
-    })
+        authorize("luke", "super")
+            .then(function(authToken) {
+                run(authToken);
+            })
+            .catch(function(err) {
+                console.error("Auth error:", err);
+            });
+    });
 </script>
 </body>
 </html>
