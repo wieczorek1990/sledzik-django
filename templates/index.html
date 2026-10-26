@@ -44,6 +44,18 @@
     </select>
 </div><br/>
 
+<div id="chart-controls" style="margin-bottom: 12px;">
+    <span style="font-weight: bold; margin-right: 8px;">Chart view:</span>
+    <label style="cursor: pointer; margin-right: 16px;">
+        <input type="radio" name="chart-type" value="timeseries" checked>
+        Action Counters Over Time
+    </label>
+    <label style="cursor: pointer;">
+        <input type="radio" name="chart-type" value="funnel">
+        Funnel
+    </label>
+</div>
+
 <p id="chart-error" style="color:red" hidden></p>
 <div id="chart"></div><br/>
 
@@ -78,6 +90,7 @@ $(document).ready(function () {
 
     function logout(reason) {
         sessionGen++;   // invalidate all in-flight requests
+        currentStats = null;
         window.localStorage.removeItem('authorization');
         updateAuthUI();
         setMessage(reason || '❖ Logged out.', false);
@@ -145,9 +158,21 @@ $(document).ready(function () {
 
     // ---- Chart ----------------------------------------------------------
 
-    function renderChart(containerId, data) {
+    let currentStats = null;
+
+    function renderCurrentChart() {
+        if (!currentStats) return;
+        const chartType = $('input[name="chart-type"]:checked').val();
+        if (chartType === 'funnel') {
+            renderFunnelChart('chart', currentStats.result);
+        } else {
+            renderTimeSeriesChart('chart', currentStats.time_series, currentStats.result);
+        }
+    }
+
+    function renderFunnelChart(containerId, resultData) {
         document.getElementById('chart-error').hidden = true;
-        const entries = Object.entries(data)
+        const entries = Object.entries(resultData || {})
             .flatMap(([group, inner]) =>
                 Object.entries(inner).map(([key, value]) => ({
                     label: `${group} › ${key}`,
@@ -156,20 +181,74 @@ $(document).ready(function () {
             )
             .sort((a, b) => b.value - a.value);
 
+        const funnelName = Object.keys(resultData || {})[0] || '';
+
         Plotly.newPlot(containerId, [{
             type: 'funnel',
             y: entries.map(e => e.label),
             x: entries.map(e => e.value),
             textinfo: 'value+percent initial'
         }], {
-            title: '❖ Actions Funnel',
+            title: funnelName ? `❖ Actions Funnel (${funnelName})` : '❖ Actions Funnel',
             height: 500,                                  // more vertical room for stages
             margin: { l: 150, r: 50, t: 60, b: 40 },      // widen left margin for labels
             yaxis: { automargin: true }                   // auto-fit label width
         }, { responsive: true });
     }
 
+    function renderTimeSeriesChart(containerId, timeSeriesData, resultData) {
+        document.getElementById('chart-error').hidden = true;
+        const funnelName = Object.keys(resultData || {})[0] || '';
+
+        if (!timeSeriesData || timeSeriesData.length === 0) {
+            Plotly.newPlot(containerId, [], {
+                title: funnelName ? `❖ Action Counters Over Time (${funnelName})` : '❖ Action Counters Over Time',
+                annotations: [{
+                    text: '❖ No action counters recorded yet.',
+                    xref: 'paper',
+                    yref: 'paper',
+                    showarrow: false,
+                    font: { size: 16, color: '#888' }
+                }],
+                xaxis: { title: 'Date' },
+                yaxis: { title: 'Count', rangemode: 'tozero' },
+                height: 500,
+                margin: { l: 60, r: 50, t: 60, b: 60 }
+            }, { responsive: true });
+            return;
+        }
+
+        // Group data points by action name
+        const actionGroups = {};
+        for (const item of timeSeriesData) {
+            if (!actionGroups[item.action]) {
+                actionGroups[item.action] = { dates: [], counts: [] };
+            }
+            actionGroups[item.action].dates.push(item.date);
+            actionGroups[item.action].counts.push(item.count);
+        }
+
+        const traces = Object.entries(actionGroups).map(([actionName, data]) => ({
+            name: actionName,
+            x: data.dates,
+            y: data.counts,
+            type: 'scatter',
+            mode: 'lines+markers',
+            marker: { size: 8 },
+            line: { shape: 'linear' }
+        }));
+
+        Plotly.newPlot(containerId, traces, {
+            title: funnelName ? `❖ Action Counters Over Time (${funnelName})` : '❖ Action Counters Over Time',
+            xaxis: { title: 'Date' },
+            yaxis: { title: 'Hits / Count', rangemode: 'tozero' },
+            height: 500,
+            margin: { l: 60, r: 50, t: 60, b: 60 }
+        }, { responsive: true });
+    }
+
     function showChartError(message) {
+        currentStats = null;
         Plotly.purge('chart');              // cleanly remove Plotly DOM/state
         const el = document.getElementById('chart-error');
         el.textContent = `Failed to load chart: ${message}`;
@@ -179,10 +258,11 @@ $(document).ready(function () {
     function fetchStatistics(funnelId) {
         const gen = sessionGen;
         return requestJSON(`/api/funnels/${encodeURIComponent(funnelId)}/statistics/`)
-            .then(({ result }) => {
+            .then(data => {
                 if (gen !== sessionGen) return;          // stale response — drop it
-                if (!result) throw new Error('Unexpected API response');
-                renderChart('chart', result);
+                if (!data || !data.result) throw new Error('Unexpected API response');
+                currentStats = data;
+                renderCurrentChart();
             })
             .catch(err => {
                 if (gen === sessionGen && err.message !== 'Not authenticated.') {
@@ -190,6 +270,10 @@ $(document).ready(function () {
                 }
             });
     }
+
+    $('input[name="chart-type"]').on('change', function () {
+        renderCurrentChart();
+    });
 
     // ---- Cascade selectors ----------------------------------------------
 

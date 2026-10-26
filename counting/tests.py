@@ -122,3 +122,54 @@ class AuthAndActionsCounterTest(TestCase):
         resp_ext = self.client.get("/extension/")
         self.assertEqual(resp_ext.status_code, 200)
         self.assertEqual(resp_ext["Content-Type"], "application/javascript")
+
+        resp_index = self.client.get("/")
+        self.assertEqual(resp_index.status_code, 200)
+        self.assertIn(b"Action Counters Over Time", resp_index.content)
+
+    def test_funnel_statistics_empty_time_series(self):
+        url = f"/api/funnels/{self.funnel.pk}/statistics/"
+        response = self.client.get(
+            url,
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["success"], "ok")
+        self.assertEqual(data["result"], {"Funnel 1": {"ready": 0}})
+        self.assertEqual(data["time_series"], [])
+
+    def test_funnel_statistics_with_time_series(self):
+        action2 = models.Action.objects.create(name="email", funnel=self.funnel)
+        models.ActionCounter.objects.create(action=self.action, user=self.user)
+        models.ActionCounter.objects.create(action=self.action, user=self.user)
+        models.ActionCounter.objects.create(action=action2, user=self.user)
+
+        url = f"/api/funnels/{self.funnel.pk}/statistics/"
+        response = self.client.get(
+            url,
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data["success"], "ok")
+        self.assertEqual(data["result"], {"Funnel 1": {"ready": 2, "email": 1}})
+        self.assertEqual(len(data["time_series"]), 2)
+
+        # verify time_series entries
+        ready_entry = next(
+            item for item in data["time_series"] if item["action"] == "ready"
+        )
+        self.assertEqual(ready_entry["count"], 2)
+        self.assertIsNotNone(ready_entry["date"])
+
+        email_entry = next(
+            item for item in data["time_series"] if item["action"] == "email"
+        )
+        self.assertEqual(email_entry["count"], 1)
+        self.assertIsNotNone(email_entry["date"])
+
+    def test_funnel_statistics_unauthenticated(self):
+        url = f"/api/funnels/{self.funnel.pk}/statistics/"
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 401)

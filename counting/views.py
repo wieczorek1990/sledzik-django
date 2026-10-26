@@ -1,6 +1,7 @@
 import uuid
 
 from django.db.models import Count
+from django.db.models.functions import TruncDate, TruncHour, TruncMonth
 from django.shortcuts import get_object_or_404, render
 from rest_framework import response, views, viewsets
 
@@ -95,13 +96,50 @@ class FunnelStatisticsView(views.APIView):
             models.Funnel.objects.filter(project__tenant__owner=request.user), pk=pk
         )
 
-        funnel_actions = funnel.action_set.annotate(n=Count("action_counters"))
+        funnel_actions = funnel.action_set.annotate(n=Count("actioncounter"))
         funnel_actions_dictionary = {a.name: a.n for a in funnel_actions}
+
+        granularity = request.query_params.get("granularity", "day")
+        if granularity == "hour":
+            trunc_fn = TruncHour("created")
+        elif granularity == "month":
+            trunc_fn = TruncMonth("created")
+        else:
+            trunc_fn = TruncDate("created")
+
+        time_series_qs = (
+            models.ActionCounter.objects.filter(
+                action__funnel=funnel,
+                action__funnel__project__tenant__owner=request.user,
+            )
+            .annotate(period=trunc_fn)
+            .values("period", "action__name")
+            .annotate(count=Count("id"))
+            .order_by("period", "action__name")
+        )
+
+        time_series = [
+            {
+                "date": (
+                    (
+                        entry["period"].isoformat()
+                        if hasattr(entry["period"], "isoformat")
+                        else str(entry["period"])
+                    )
+                    if entry["period"]
+                    else None
+                ),
+                "action": entry["action__name"],
+                "count": entry["count"],
+            }
+            for entry in time_series_qs
+        ]
 
         return response.Response(
             {
                 "success": "ok",
                 "result": {funnel.name: funnel_actions_dictionary},
+                "time_series": time_series,
             }
         )
 
