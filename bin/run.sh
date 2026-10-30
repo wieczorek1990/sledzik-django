@@ -1,8 +1,10 @@
 #!/bin/sh
 # Runner.
 
-set -euo pipefail
+set -eu
+
+cd "$(dirname "$0")/.."
 
 . ./bin/envs.sh
 ./manage.py collectstatic --noinput
-daphne -b 0.0.0.0 -p 80 śledzik.asgi:application
+exec daphne -e "ssl:443:interface=0.0.0.0:privateKey=./certificates/cert.key:certKey=./certificates/cert.crt" śledzik.asgi:application

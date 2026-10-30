@@ -9,3 +9,4 @@ isort
 pandas
 ruff
 whitenoise
+Werkzeug
