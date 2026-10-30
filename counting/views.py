@@ -1,8 +1,27 @@
 import uuid
 
 from django.contrib.admin.views.decorators import staff_member_required
-from django.db.models import Count
-from django.db.models.functions import TruncDate, TruncHour, TruncMonth
+from django.contrib.auth import get_user_model
+from django.db import transaction
+from django.db.models import (
+    BigIntegerField,
+    Count,
+    DateTimeField,
+    DurationField,
+    ExpressionWrapper,
+    F,
+    Value,
+)
+from django.db.models.functions import (
+    Cast,
+    ExtractMinute,
+    ExtractSecond,
+    Floor,
+    TruncDay,
+    TruncHour,
+    TruncMonth,
+    TruncYear,
+)
 from django.shortcuts import get_object_or_404, render
 from rest_framework import permissions, response, views, viewsets
 from rest_framework.authtoken.models import Token
@@ -23,6 +42,21 @@ class RegisterView(views.APIView):
                 status=201,
             )
         return response.Response(serializer.errors, status=400)
+
+
+class AnonymousRegisterView(views.APIView):
+    permission_classes = (permissions.AllowAny,)
+
+    def post(self, request):
+        with transaction.atomic():
+            user = get_user_model().objects.create_user(
+                username=f"anonymous_{uuid.uuid4().hex}", password=None
+            )
+            token = Token.objects.create(user=user)
+        return response.Response(
+            {"token": token.key, "username": user.username, "id": user.id},
+            status=201,
+        )
 
 
 class TenantViewSet(viewsets.ModelViewSet):
@@ -116,13 +150,39 @@ class FunnelStatisticsView(views.APIView):
         funnel_actions = funnel.action_set.annotate(n=Count("actioncounter"))
         funnel_actions_dictionary = {a.name: a.n for a in funnel_actions}
 
-        granularity = request.query_params.get("granularity", "day")
-        if granularity == "hour":
-            trunc_fn = TruncHour("created")
-        elif granularity == "month":
-            trunc_fn = TruncMonth("created")
+        granularity = request.query_params.get("granularity", "1min")
+        fixed_windows = {"30min": 1800, "15min": 900, "5min": 300, "1min": 60, "12sec": 12}
+        calendar_windows = {
+            "hour": TruncHour,
+            "day": TruncDay,
+            "month": TruncMonth,
+            "year": TruncYear,
+        }
+        if granularity in calendar_windows:
+            trunc_fn = calendar_windows[granularity]("created")
+        elif granularity in fixed_windows:
+            seconds = fixed_windows[granularity]
+            elapsed = ExtractMinute("created") * 60 + ExtractSecond("created")
+            offset = ExpressionWrapper(
+                Cast(
+                    Floor(elapsed / Value(float(seconds))) * Value(seconds * 1_000_000),
+                    output_field=BigIntegerField(),
+                ),
+                output_field=DurationField(),
+            )
+            trunc_fn = ExpressionWrapper(
+                TruncHour("created") + offset, output_field=DateTimeField()
+            )
+        elif granularity == "created":
+            trunc_fn = F("created")
         else:
-            trunc_fn = TruncDate("created")
+            return response.Response(
+                {"granularity": "Choose created, 12sec, 1min, 5min, 15min, 30min, hour, day, month, or year."}, status=400
+            )
+
+        grouping = ["period", "action__name"]
+        if granularity == "created":
+            grouping.append("created_ns")
 
         time_series_qs = (
             models.ActionCounter.objects.filter(
@@ -130,22 +190,22 @@ class FunnelStatisticsView(views.APIView):
                 action__funnel__project__tenant__owner=request.user,
             )
             .annotate(period=trunc_fn)
-            .values("period", "action__name")
+            .values(*grouping)
             .annotate(count=Count("id"))
-            .order_by("period", "action__name")
+            .order_by(*grouping)
         )
+
+        def format_created(entry):
+            period = entry["period"]
+            if granularity == "created" and entry["created_ns"] is not None:
+                nanoseconds = entry["created_ns"] % 1_000_000_000
+                timestamp = period.isoformat(timespec="seconds")
+                return f"{timestamp[:19]}.{nanoseconds:09d}{timestamp[19:]}"
+            return period.isoformat() if period is not None else None
 
         time_series = [
             {
-                "date": (
-                    (
-                        entry["period"].isoformat()
-                        if hasattr(entry["period"], "isoformat")
-                        else str(entry["period"])
-                    )
-                    if entry["period"]
-                    else None
-                ),
+                "created": format_created(entry),
                 "action": entry["action__name"],
                 "count": entry["count"],
             }

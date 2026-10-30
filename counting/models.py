@@ -3,6 +3,8 @@ import uuid
 from django.conf import settings
 from django.db import models
 
+from counting.fields import NanosecondDateTimeField
+
 
 class Tenant(models.Model):
     name = models.CharField(max_length=255, unique=True)
@@ -55,7 +57,8 @@ class ActionCounter(models.Model):
         on_delete=models.CASCADE,
         related_name="action_counters",
     )
-    created = models.DateTimeField(auto_now_add=True)
+    created = NanosecondDateTimeField(auto_now_add=True)
+    created_ns = models.BigIntegerField(editable=False, null=True)
 
     def __str__(self) -> str:
         return f"{self.action.name}"

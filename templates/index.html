@@ -57,6 +57,20 @@
         </label>
     </div>
 
+    <label for="time-window">Time window:</label>
+    <select id="time-window">
+        <option value="year">Year</option>
+        <option value="month">Month</option>
+        <option value="day">Day</option>
+        <option value="hour">Hour</option>
+        <option value="30min">30 minutes</option>
+        <option value="15min">15 minutes</option>
+        <option value="5min">5 minutes</option>
+        <option value="1min" selected>1 minute</option>
+        <option value="12sec">12 seconds</option>
+    </select>
+    <label for="chart-action">Action:</label>
+    <select id="chart-action" aria-label="Chart action"></select>
     <p id="chart-error" style="color:red" hidden></p>
     <div id="chart"></div>
 </div><br/>
@@ -167,6 +181,7 @@ $(document).ready(function () {
     // ---- Chart ----------------------------------------------------------
 
     let currentStats = null;
+    let statisticsRequest = 0;
 
     function renderCurrentChart() {
         if (!currentStats) return;
@@ -207,6 +222,13 @@ $(document).ready(function () {
     function renderTimeSeriesChart(containerId, timeSeriesData, resultData) {
         document.getElementById('chart-error').hidden = true;
         const funnelName = Object.keys(resultData || {})[0] || '';
+        const actionSelect = document.getElementById('chart-action');
+        const previousAction = actionSelect.value;
+        const actions = Object.keys((resultData || {})[funnelName] || {});
+        actionSelect.replaceChildren(...actions.map(action => new Option(action, action)));
+        if (actions.includes(previousAction)) actionSelect.value = previousAction;
+        const selectedAction = actionSelect.value;
+        timeSeriesData = (timeSeriesData || []).filter(item => item.action === selectedAction);
 
         if (!timeSeriesData || timeSeriesData.length === 0) {
             Plotly.newPlot(containerId, [], {
@@ -218,7 +240,7 @@ $(document).ready(function () {
                     showarrow: false,
                     font: { size: 16, color: '#888' }
                 }],
-                xaxis: { title: 'Date' },
+                xaxis: { title: 'Created' },
                 yaxis: { title: 'Count', rangemode: 'tozero' },
                 height: 500,
                 margin: { l: 60, r: 50, t: 60, b: 60 }
@@ -226,33 +248,34 @@ $(document).ready(function () {
             return;
         }
 
-        // Group data points by action name
-        const actionGroups = {};
-        for (const item of timeSeriesData) {
-            if (!actionGroups[item.action]) {
-                actionGroups[item.action] = { dates: [], counts: [] };
-            }
-            actionGroups[item.action].dates.push(item.date);
-            actionGroups[item.action].counts.push(item.count);
-        }
-
-        const traces = Object.entries(actionGroups).map(([actionName, data]) => ({
-            name: actionName,
-            x: data.dates,
-            y: data.counts,
+        const traces = [{
+            name: selectedAction,
+            x: timeSeriesData.map(item => item.created),
+            y: timeSeriesData.map(item => item.count),
             type: 'scatter',
             mode: 'lines+markers',
             marker: { size: 8 },
             line: { shape: 'linear' }
-        }));
+        }];
+
+        const timestamps = [...new Set(timeSeriesData.map(item => item.created))].sort();
+        const visibleRange = timestamps.length > 30
+            ? [timestamps[timestamps.length - 30], timestamps[timestamps.length - 1]]
+            : undefined;
 
         Plotly.newPlot(containerId, traces, {
             title: funnelName ? `❖ Action Counters Over Time (${funnelName})` : '❖ Action Counters Over Time',
-            xaxis: { title: 'Date' },
-            yaxis: { title: 'Hits / Count', rangemode: 'tozero' },
+            dragmode: 'pan',
+            xaxis: {
+                title: 'Created',
+                type: 'date',
+                range: visibleRange,
+                rangeslider: { visible: true, thickness: 0.15 }
+            },
+            yaxis: { title: 'Hits / Count', rangemode: 'tozero', fixedrange: true },
             height: 500,
             margin: { l: 60, r: 50, t: 60, b: 60 }
-        }, { responsive: true });
+        }, { responsive: true, scrollZoom: true });
     }
 
     function showChartError(message) {
@@ -265,15 +288,17 @@ $(document).ready(function () {
 
     function fetchStatistics(funnelId) {
         const gen = sessionGen;
-        return requestJSON(`/api/funnels/${encodeURIComponent(funnelId)}/statistics/`)
+        const requestId = ++statisticsRequest;
+        const windowSize = $('#time-window').val();
+        return requestJSON(`/api/funnels/${encodeURIComponent(funnelId)}/statistics/?granularity=${encodeURIComponent(windowSize)}`)
             .then(data => {
-                if (gen !== sessionGen) return;          // stale response — drop it
+                if (gen !== sessionGen || requestId !== statisticsRequest) return;
                 if (!data || !data.result) throw new Error('Unexpected API response');
                 currentStats = data;
                 renderCurrentChart();
             })
             .catch(err => {
-                if (gen === sessionGen && err.message !== 'Not authenticated.') {
+                if (gen === sessionGen && requestId === statisticsRequest && err.message !== 'Not authenticated.') {
                     showChartError(err.message);
                 }
             });
@@ -281,6 +306,13 @@ $(document).ready(function () {
 
     $('input[name="chart-type"]').on('change', function () {
         renderCurrentChart();
+    });
+
+    $('#chart-action').on('change', renderCurrentChart);
+
+    $('#time-window').on('change', function () {
+        const funnelId = $('#funnel-select').val();
+        if (funnelId) fetchStatistics(funnelId);
     });
 
     // ---- Cascade selectors ----------------------------------------------

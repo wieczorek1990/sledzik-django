@@ -1,10 +1,14 @@
 import uuid
+from datetime import datetime, timedelta, timezone
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.test import Client, TestCase
+from django.urls import reverse
 from rest_framework.authtoken.models import Token
 
 from counting import models
+from counting.serializers import ActionCounterSerializer
 
 User = get_user_model()
 
@@ -37,6 +41,31 @@ class AuthAndActionsCounterTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"token": self.token.key})
+
+    def test_counter_preserves_nanoseconds(self):
+        timestamp = 1_793_361_600_123_456_789
+        with patch("counting.fields.time.time_ns", return_value=timestamp):
+            counter = models.ActionCounter.objects.create(
+                action=self.action, user=self.user
+            )
+        counter.refresh_from_db()
+        self.assertEqual(counter.created_ns, timestamp)
+        self.assertEqual(
+            counter.created,
+            datetime(2026, 10, 30, 12, microsecond=123456, tzinfo=timezone.utc),
+        )
+        self.assertEqual(ActionCounterSerializer(counter).data["created_ns"], str(timestamp))
+        counter.save()
+        counter.refresh_from_db()
+        self.assertEqual(counter.created_ns, timestamp)
+
+    def test_bulk_counter_preserves_nanoseconds(self):
+        timestamp = 1_793_361_600_123_456_789
+        with patch("counting.fields.time.time_ns", return_value=timestamp):
+            models.ActionCounter.objects.bulk_create([
+                models.ActionCounter(action=self.action, user=self.user)
+            ])
+        self.assertEqual(models.ActionCounter.objects.get().created_ns, timestamp)
 
     def test_api_auth_no_slash_success(self):
         response = self.client.post(
@@ -138,6 +167,36 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(response.status_code, 401)
         self.assertEqual(models.ActionCounter.objects.count(), 0)
 
+    def test_anonymous_registration(self):
+        users = []
+        for url in ["/api/register/anonymous/", "/api/register/anonymous"]:
+            with self.subTest(url=url):
+                result = self.client.post(url, data={}, content_type="application/json")
+                self.assertEqual(result.status_code, 201)
+                data = result.json()
+                user = User.objects.get(pk=data["id"])
+                self.assertEqual(data["username"], user.username)
+                self.assertFalse(user.has_usable_password())
+                self.assertEqual(user.email, "")
+                self.assertFalse(user.is_staff)
+                self.assertFalse(user.is_superuser)
+                self.assertEqual(Token.objects.get(user=user).key, data["token"])
+                hit = self.client.post(
+                    f"/api/actions/{self.action.pk}/hit/",
+                    data={"token": str(self.tenant.token)},
+                    content_type="application/json",
+                    HTTP_AUTHORIZATION=f"Token {data['token']}",
+                )
+                self.assertEqual(hit.status_code, 200)
+                self.assertTrue(models.ActionCounter.objects.filter(user=user).exists())
+                users.append(user.pk)
+        self.assertNotEqual(*users)
+
+    def test_anonymous_registration_requires_post(self):
+        count = User.objects.count()
+        self.assertEqual(self.client.get("/api/register/anonymous/").status_code, 405)
+        self.assertEqual(User.objects.count(), count)
+
     def test_action_hit_authenticated_missing_token(self):
         url = f"/api/actions/{self.action.pk}/hit/"
         response = self.client.post(
@@ -207,8 +266,7 @@ class AuthAndActionsCounterTest(TestCase):
     def test_sample_and_extension_views(self):
         resp_sample = self.client.get("/sample/")
         self.assertEqual(resp_sample.status_code, 200)
-        self.assertIn(b"/api/register/", resp_sample.content)
-        self.assertIn(b"/api/auth/", resp_sample.content)
+        self.assertIn(reverse("api-register-anonymous").encode(), resp_sample.content)
         self.assertIn(b'id="token"', resp_sample.content)
         self.assertIn(b"Hit", resp_sample.content)
 
@@ -254,7 +312,7 @@ class AuthAndActionsCounterTest(TestCase):
         models.ActionCounter.objects.create(action=self.action, user=self.user)
         models.ActionCounter.objects.create(action=action2, user=self.user)
 
-        url = f"/api/funnels/{self.funnel.pk}/statistics/"
+        url = f"/api/funnels/{self.funnel.pk}/statistics/?granularity=day"
         response = self.client.get(
             url,
             HTTP_AUTHORIZATION=f"Token {self.token.key}",
@@ -270,15 +328,124 @@ class AuthAndActionsCounterTest(TestCase):
             item for item in data["time_series"] if item["action"] == "ready"
         )
         self.assertEqual(ready_entry["count"], 2)
-        self.assertIsNotNone(ready_entry["date"])
+        self.assertIsNotNone(ready_entry["created"])
 
         email_entry = next(
             item for item in data["time_series"] if item["action"] == "email"
         )
         self.assertEqual(email_entry["count"], 1)
-        self.assertIsNotNone(email_entry["date"])
+        self.assertIsNotNone(email_entry["created"])
+
+    def test_statistics_exact_created_timestamp(self):
+        for timestamp in [1_793_361_600_123_456_789, 1_793_361_600_123_456_790]:
+            with patch("counting.fields.time.time_ns", return_value=timestamp):
+                models.ActionCounter.objects.create(action=self.action, user=self.user)
+        response = self.client.get(
+            f"/api/funnels/{self.funnel.pk}/statistics/?granularity=created",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["time_series"], [
+            {"created": "2026-10-30T12:00:00.123456789+00:00", "action": "ready", "count": 1},
+            {"created": "2026-10-30T12:00:00.123456790+00:00", "action": "ready", "count": 1},
+        ])
+
+    def test_statistics_groups_by_bucket_and_action(self):
+        action2 = models.Action.objects.create(name="email", funnel=self.funnel)
+        samples = [
+            (self.action, datetime(2026, 10, 30, 12, 10, tzinfo=timezone.utc)),
+            (self.action, datetime(2026, 10, 30, 12, 20, tzinfo=timezone.utc)),
+            (self.action, datetime(2026, 10, 30, 13, 10, tzinfo=timezone.utc)),
+            (self.action, datetime(2026, 10, 31, 12, tzinfo=timezone.utc)),
+            (action2, datetime(2026, 10, 30, 12, tzinfo=timezone.utc)),
+        ]
+        for action, created in samples:
+            counter = models.ActionCounter.objects.create(action=action, user=self.user)
+            models.ActionCounter.objects.filter(pk=counter.pk).update(created=created)
+
+        url = f"/api/funnels/{self.funnel.pk}/statistics/"
+        for query, expected in [
+            ("", [
+                ("2026-10-30T12:00:00+00:00", "email", 1),
+                ("2026-10-30T12:10:00+00:00", "ready", 1),
+                ("2026-10-30T12:20:00+00:00", "ready", 1),
+                ("2026-10-30T13:10:00+00:00", "ready", 1),
+                ("2026-10-31T12:00:00+00:00", "ready", 1),
+            ]),
+            ("?granularity=day", [
+                ("2026-10-30T00:00:00+00:00", "email", 1),
+                ("2026-10-30T00:00:00+00:00", "ready", 3),
+                ("2026-10-31T00:00:00+00:00", "ready", 1),
+            ]),
+            ("?granularity=hour", [
+                ("2026-10-30T12:00:00+00:00", "email", 1),
+                ("2026-10-30T12:00:00+00:00", "ready", 2),
+                ("2026-10-30T13:00:00+00:00", "ready", 1),
+                ("2026-10-31T12:00:00+00:00", "ready", 1),
+            ]),
+            ("?granularity=month", [
+                ("2026-10-01T00:00:00+00:00", "email", 1),
+                ("2026-10-01T00:00:00+00:00", "ready", 4),
+            ]),
+        ]:
+            with self.subTest(query=query):
+                response = self.client.get(
+                    url + query, HTTP_AUTHORIZATION=f"Token {self.token.key}"
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json()["time_series"], [
+                    {"created": created, "action": action, "count": count}
+                    for created, action, count in expected
+                ])
 
     def test_funnel_statistics_unauthenticated(self):
         url = f"/api/funnels/{self.funnel.pk}/statistics/"
         response = self.client.get(url)
         self.assertEqual(response.status_code, 401)
+
+    def test_statistics_calendar_windows(self):
+        for created in [
+            datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
+            datetime(2026, 1, 1, tzinfo=timezone.utc),
+            datetime(2026, 1, 31, 23, 59, 59, tzinfo=timezone.utc),
+            datetime(2026, 2, 1, tzinfo=timezone.utc),
+        ]:
+            counter = models.ActionCounter.objects.create(action=self.action, user=self.user)
+            models.ActionCounter.objects.filter(pk=counter.pk).update(created=created)
+        for granularity, expected in [
+            ("year", [("2025-01-01", 1), ("2026-01-01", 3)]),
+            ("month", [("2025-12-01", 1), ("2026-01-01", 2), ("2026-02-01", 1)]),
+            ("day", [("2025-12-31", 1), ("2026-01-01", 1), ("2026-01-31", 1), ("2026-02-01", 1)]),
+        ]:
+            with self.subTest(granularity=granularity):
+                result = self.client.get(
+                    f"/api/funnels/{self.funnel.pk}/statistics/?granularity={granularity}",
+                    HTTP_AUTHORIZATION=f"Token {self.token.key}",
+                )
+                self.assertEqual(result.status_code, 200)
+                self.assertEqual(result.json()["time_series"], [
+                    {"created": f"{day}T00:00:00+00:00", "action": "ready", "count": count}
+                    for day, count in expected
+                ])
+
+    def test_statistics_short_window_boundaries(self):
+        start = datetime(2026, 10, 30, 12, tzinfo=timezone.utc)
+        for granularity, seconds in [
+            ("hour", 3600), ("30min", 1800), ("15min", 900),
+            ("5min", 300), ("1min", 60), ("12sec", 12),
+        ]:
+            with self.subTest(granularity=granularity):
+                models.ActionCounter.objects.all().delete()
+                end = start + timedelta(seconds=seconds)
+                for created in [start, end - timedelta(microseconds=1), end]:
+                    counter = models.ActionCounter.objects.create(action=self.action, user=self.user)
+                    models.ActionCounter.objects.filter(pk=counter.pk).update(created=created)
+                result = self.client.get(
+                    f"/api/funnels/{self.funnel.pk}/statistics/?granularity={granularity}",
+                    HTTP_AUTHORIZATION=f"Token {self.token.key}",
+                )
+                self.assertEqual(result.status_code, 200)
+                self.assertEqual(result.json()["time_series"], [
+                    {"created": start.isoformat(), "action": "ready", "count": 2},
+                    {"created": end.isoformat(), "action": "ready", "count": 1},
+                ])
