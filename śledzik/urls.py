@@ -35,6 +35,7 @@ urlpatterns = [
     ),
     path("api/actions/for-token/", views.TokenActionsView.as_view(), name="token-actions"),
     path("api/visits/", views.GlobalVisitsView.as_view(), name="global-visits"),
+    path("api/me/", views.CurrentUserView.as_view(), name="current-user"),
     path("api/", include(router.urls)),
     path("api/actions/<int:pk>/hit/", views.ActionsCounterView.as_view()),
     path("api/funnels/<int:pk>/statistics/", views.FunnelStatisticsView.as_view()),

@@ -118,7 +118,7 @@ class TokenActionsView(views.APIView):
         tenant = models.Tenant.objects.filter(token=token).first()
         if tenant is None:
             return response.Response({"failure": "invalid token"}, status=401)
-        actions = models.Action.objects.filter(funnel__project__tenant=tenant).order_by("pk")
+        actions = models.Action.objects.filter(funnel__project__tenant=tenant)
         return response.Response(serializers.ActionSerializer(actions, many=True).data)
 
 
@@ -163,6 +163,11 @@ class ActionsCounterView(views.APIView):
         return response.Response({"success": "ok"})
 
 
+class CurrentUserView(views.APIView):
+    def get(self, request):
+        return response.Response({"id": request.user.pk, "username": request.user.get_username()})
+
+
 class GlobalVisitsView(views.APIView):
     def get(self, request):
         count = models.ActionCounter.objects.filter(
@@ -177,7 +182,7 @@ class FunnelStatisticsView(views.APIView):
             models.Funnel.objects.filter(project__tenant__owners=request.user), pk=pk
         )
 
-        funnel_actions = funnel.action_set.annotate(n=Count("actioncounter"))
+        funnel_actions = funnel.action_set.annotate(n=Count("actioncounter")).order_by("order", "pk")
         funnel_actions_dictionary = {a.name: a.n for a in funnel_actions}
 
         granularity = request.query_params.get("granularity", "1min")
@@ -250,6 +255,7 @@ class FunnelStatisticsView(views.APIView):
             {
                 "success": "ok",
                 "result": {funnel.name: funnel_actions_dictionary},
+                "action_order": [a.name for a in funnel_actions],
                 "time_series": time_series,
                 "unique_viewers": unique_viewers,
             }

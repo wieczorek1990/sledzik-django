@@ -523,7 +523,7 @@ class AuthAndActionsCounterTest(TestCase):
         )
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json(), [
-            {"id": self.action.pk, "name": self.action.name, "funnel": self.funnel.pk}
+            {"id": self.action.pk, "name": self.action.name, "funnel": self.funnel.pk, "order": 0}
         ])
 
     def test_actions_for_token_rejects_invalid_tokens(self):
@@ -631,3 +631,42 @@ class AuthAndActionsCounterTest(TestCase):
         result = self.client.get(reverse("global-visits"), HTTP_AUTHORIZATION=f"Token {self.token.key}")
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json(), {"visits": 0})
+
+    def test_actions_follow_funnel_order_in_lists_and_statistics(self):
+        self.action.order = 20
+        self.action.save()
+        first = models.Action.objects.create(name="10", funnel=self.funnel, order=10)
+        second = models.Action.objects.create(name="2", funnel=self.funnel, order=10)
+        models.ActionCounter.objects.create(action=self.action, user=self.user)
+        expected = [first.pk, second.pk, self.action.pk]
+        self.assertEqual(list(self.funnel.action_set.values_list("pk", flat=True)), expected)
+        headers = {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
+        listed = self.client.get("/api/actions/", **headers)
+        self.assertEqual([item["id"] for item in listed.json()], expected)
+        sample = self.client.post(
+            reverse("token-actions"), {"token": str(self.tenant.token)}, content_type="application/json"
+        )
+        self.assertEqual([item["id"] for item in sample.json()], expected)
+        stats = self.client.get(f"/api/funnels/{self.funnel.pk}/statistics/", **headers)
+        self.assertEqual(stats.json()["action_order"], ["10", "2", "ready"])
+        self.assertEqual(stats.json()["result"][self.funnel.name], {"10": 0, "2": 0, "ready": 1})
+
+    def test_action_order_can_be_edited_and_rejects_negative_values(self):
+        url = f"/api/actions/{self.action.pk}/"
+        headers = {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
+        result = self.client.patch(url, {"order": 5}, content_type="application/json", **headers)
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json()["order"], 5)
+        invalid = self.client.patch(url, {"order": -1}, content_type="application/json", **headers)
+        self.assertEqual(invalid.status_code, 400)
+        self.action.refresh_from_db()
+        self.assertEqual(self.action.order, 5)
+
+    def test_current_user_matches_api_token_instead_of_admin_session(self):
+        self.client.force_login(self.staff_user)
+        result = self.client.get(reverse("current-user"), HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), {"id": self.user.pk, "username": self.user.username})
+
+    def test_current_user_requires_token(self):
+        self.assertEqual(self.client.get(reverse("current-user")).status_code, 401)

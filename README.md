@@ -5,6 +5,13 @@ tenant API accepts an `owners` list of user IDs. Creation always includes the
 requesting user; existing owners can update the list, which cannot be empty.
 All owners share access to the tenant's projects, funnels, actions, and statistics.
 
+Actions have an `order` field within each funnel. Lower values appear first;
+ties use the action ID. Existing actions default to 0, preserving their ID order.
+Edit the sequence in the funnel admin's action rows, the action list, or the
+action API (`PATCH /api/actions/<id>/` with `{"order": 10}`). The sample chooser
+and funnel chart follow this sequence. Statistics include an `action_order`
+array so clients can preserve ordering even for action names containing numbers.
+
 The dashboard's Total visits counter sums recorded action hits across all tenants
 owned by the signed-in user. It refreshes every 30 seconds while the page is
 visible. `GET /api/visits/` returns `{"visits": 123}` and requires a user auth token.

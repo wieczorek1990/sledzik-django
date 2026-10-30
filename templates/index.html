@@ -18,6 +18,7 @@
         <button id="login" class="btn btn-primary" type="submit">Login</button>
         <button id="logout" class="btn btn-outline-secondary" type="button">Logout</button>
     </form>
+    <p id="logged-as" aria-live="polite" hidden></p>
     <p id="auth-message" aria-live="polite"></p>
 </div>
 
@@ -50,6 +51,7 @@
 </div><br/>
 
 <div id="chart-section" style="display: none;">
+    <hr class="chart-divider">
     <div id="chart-controls" style="margin-bottom: 12px;">
         <span style="font-weight: bold; margin-right: 8px;">Chart view:</span>
         <label style="cursor: pointer; margin-right: 16px;">
@@ -66,6 +68,7 @@
         </label>
     </div>
 
+    <span id="time-window-control">
     <label for="time-window">Time window:</label>
     <select id="time-window">
         <option value="year">Year</option>
@@ -78,6 +81,7 @@
         <option value="1min" selected>1 minute</option>
         <option value="12sec">12 seconds</option>
     </select>
+    </span>
     <span id="action-control">
         <label for="chart-action">Action:</label>
         <select id="chart-action" aria-label="Chart action"></select>
@@ -93,6 +97,14 @@
 $(document).ready(function () {
 
     const $message = $('#auth-message');
+    const chartViewStorageKey = 'śledzik.chartView';
+    const $chartTypes = $('input[name="chart-type"]');
+    try {
+        const savedView = window.localStorage.getItem(chartViewStorageKey);
+        $chartTypes.filter(function () { return this.value === savedView; }).prop('checked', true);
+    } catch (error) {
+        // Use the default view when browser storage is unavailable.
+    }
 
     // Increments on every login/logout; responses from an older
     // generation are discarded so stale fetches can't touch the DOM.
@@ -117,6 +129,7 @@ $(document).ready(function () {
         $('#logout').toggle(loggedIn);
         $('#chart-section').toggle(loggedIn);
         $('#visit-counter').prop('hidden', !loggedIn);
+        $('#logged-as').text(loggedIn ? 'Checking account…' : '').prop('hidden', !loggedIn);
         if (!loggedIn) {
             $('#chart-error').hide();
             Plotly.purge('chart');
@@ -246,28 +259,28 @@ $(document).ready(function () {
     };
 
     function renderCurrentChart() {
-        if (!currentStats) return;
         const chartType = $('input[name="chart-type"]:checked').val();
+        $('#time-window-control').toggle(chartType !== 'funnel');
         $('#action-control').toggle(chartType === 'timeseries');
+        if (!currentStats) return;
         if (chartType === 'funnel') {
-            renderFunnelChart('chart', currentStats.result);
+            renderFunnelChart('chart', currentStats.result, currentStats.action_order);
         } else if (chartType === 'viewers') {
             renderTimeSeriesChart('chart', currentStats.unique_viewers, currentStats.result, true);
         } else {
-            renderTimeSeriesChart('chart', currentStats.time_series, currentStats.result);
+            renderTimeSeriesChart('chart', currentStats.time_series, currentStats.result, false, currentStats.action_order);
         }
     }
 
-    function renderFunnelChart(containerId, resultData) {
+    function renderFunnelChart(containerId, resultData, actionOrder) {
         document.getElementById('chart-error').hidden = true;
         const entries = Object.entries(resultData || {})
             .flatMap(([group, inner]) =>
-                Object.entries(inner).map(([key, value]) => ({
+                (actionOrder || Object.keys(inner)).map(key => ({
                     label: `${group} › ${key}`,
-                    value: value
+                    value: inner[key]
                 }))
-            )
-            .sort((a, b) => b.value - a.value);
+            );
 
         const funnelName = Object.keys(resultData || {})[0] || '';
 
@@ -285,14 +298,14 @@ $(document).ready(function () {
         }, { responsive: true });
     }
 
-    function renderTimeSeriesChart(containerId, timeSeriesData, resultData, uniqueViewers = false) {
+    function renderTimeSeriesChart(containerId, timeSeriesData, resultData, uniqueViewers = false, actionOrder) {
         document.getElementById('chart-error').hidden = true;
         const funnelName = Object.keys(resultData || {})[0] || '';
         const title = uniqueViewers ? 'Unique Viewers Over Time' : 'Action Counters Over Time';
         const yTitle = uniqueViewers ? 'Unique viewers' : 'Hits / Count';
         const actionSelect = document.getElementById('chart-action');
         const previousAction = actionSelect.value;
-        const actions = Object.keys((resultData || {})[funnelName] || {});
+        const actions = actionOrder || Object.keys((resultData || {})[funnelName] || {});
         actionSelect.replaceChildren(...actions.map(action => new Option(action, action)));
         if (actions.includes(previousAction)) actionSelect.value = previousAction;
         const selectedAction = actionSelect.value;
@@ -374,7 +387,12 @@ $(document).ready(function () {
             });
     }
 
-    $('input[name="chart-type"]').on('change', function () {
+    $chartTypes.on('change', function () {
+        try {
+            window.localStorage.setItem(chartViewStorageKey, this.value);
+        } catch (error) {
+            // Keep switching views even when browser storage is unavailable.
+        }
         renderCurrentChart();
     });
 
@@ -404,7 +422,19 @@ $(document).ready(function () {
 
     // ---- Initialization --------------------------------------------------
 
+    function loadCurrentUser() {
+        const gen = sessionGen;
+        return requestJSON('{% url "current-user" %}').then(user => {
+            if (gen === sessionGen) $('#logged-as').text(`Logged in as ${user.username}`);
+        }).catch(error => {
+            if (gen === sessionGen && error.message !== 'Not authenticated.') {
+                $('#logged-as').text('Unable to load account.');
+            }
+        });
+    }
+
     function loadTenants() {
+        loadCurrentUser();
         loadVisits();
         const gen = sessionGen;
         return requestJSON('/api/tenants/')
@@ -495,6 +525,7 @@ $(document).ready(function () {
     }
 
     updateAuthUI();
+    renderCurrentChart();
 
     if (getToken()) {
         loadTenants();      // returning visitor with a valid token

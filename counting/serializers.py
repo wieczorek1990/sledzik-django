@@ -63,7 +63,8 @@ class FunnelSerializer(serializers.ModelSerializer):
 class ActionSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Action
-        fields = ("id", "name", "funnel")
+        fields = ("id", "name", "funnel", "order")
+        extra_kwargs = {"order": {"min_value": 0}}
 
     def validate_funnel(self, value):
         # value is the Funnel object

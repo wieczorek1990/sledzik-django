@@ -40,12 +40,14 @@ class Funnel(models.Model):
 class Action(models.Model):
     name = models.CharField(max_length=255)
     funnel = models.ForeignKey(Funnel, on_delete=models.CASCADE)
+    order = models.PositiveIntegerField(default=0)
 
     def __str__(self) -> str:
         return f"{self.pk}: {self.funnel.name}: {self.name}"
 
     class Meta:
         unique_together = ("name", "funnel")
+        ordering = ("funnel_id", "order", "pk")
 
 
 class ActionCounter(models.Model):
