@@ -48,8 +48,8 @@ Hosts append (`/etc/hosts`):
 Serious pages:
 
 ```
-http://sledzik.soiree.tech:8000/admin/
-http://sledzik.soiree.tech:8000/sample/
-http://sledzik.soiree.tech:8000/extension/
-http://sledzik.soiree.tech:8000/
+http://sledzik.soiree.tech/admin/
+http://sledzik.soiree.tech/sample/
+http://sledzik.soiree.tech/extension/
+http://sledzik.soiree.tech/
 ```
