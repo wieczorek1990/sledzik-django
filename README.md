@@ -45,11 +45,18 @@ Hosts append (`/etc/hosts`):
 127.0.0.1 sledzik.soiree.tech
 ```
 
-Serious pages:
-
+On `/etc/hosts` changed.
 ```
 http://sledzik.soiree.tech/admin/
 http://sledzik.soiree.tech/sample/
 http://sledzik.soiree.tech/extension/
 http://sledzik.soiree.tech/
+```
+
+On `ngrok` domains configured:
+```
+https://proud-amazingly-filly.ngrok-free.app/admin/
+https://proud-amazingly-filly.ngrok-free.app/sample/
+https://proud-amazingly-filly.ngrok-free.app/extension/
+https://proud-amazingly-filly.ngrok-free.app/
 ```
