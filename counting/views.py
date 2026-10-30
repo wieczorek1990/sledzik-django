@@ -63,17 +63,19 @@ class TenantViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.TenantSerializer
 
     def get_queryset(self):
-        return models.Tenant.objects.filter(owner=self.request.user)
+        return models.Tenant.objects.filter(owners=self.request.user)
 
     def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
+        with transaction.atomic():
+            tenant = serializer.save()
+            tenant.owners.add(self.request.user)
 
 
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.ProjectSerializer
 
     def get_queryset(self):
-        qs = models.Project.objects.filter(tenant__owner=self.request.user)
+        qs = models.Project.objects.filter(tenant__owners=self.request.user)
         tenant = self.request.query_params.get("tenant")
         if tenant:
             qs = qs.filter(tenant__id=tenant)
@@ -84,7 +86,7 @@ class FunnelViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.FunnelSerializer
 
     def get_queryset(self):
-        qs = models.Funnel.objects.filter(project__tenant__owner=self.request.user)
+        qs = models.Funnel.objects.filter(project__tenant__owners=self.request.user)
         project = self.request.query_params.get("project")
         if project:
             qs = qs.filter(project__id=project)
@@ -96,7 +98,7 @@ class ActionViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return models.Action.objects.filter(
-            funnel__project__tenant__owner=self.request.user
+            funnel__project__tenant__owners=self.request.user
         )
 
 
@@ -121,7 +123,7 @@ class ActionCounterViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return models.ActionCounter.objects.filter(
-            action__funnel__project__tenant__owner=self.request.user
+            action__funnel__project__tenant__owners=self.request.user
         )
 
 
@@ -157,10 +159,18 @@ class ActionsCounterView(views.APIView):
         return response.Response({"success": "ok"})
 
 
+class GlobalVisitsView(views.APIView):
+    def get(self, request):
+        count = models.ActionCounter.objects.filter(
+            action__funnel__project__tenant__owners=request.user
+        ).count()
+        return response.Response({"visits": count})
+
+
 class FunnelStatisticsView(views.APIView):
     def get(self, request, pk=None):
         funnel = get_object_or_404(
-            models.Funnel.objects.filter(project__tenant__owner=request.user), pk=pk
+            models.Funnel.objects.filter(project__tenant__owners=request.user), pk=pk
         )
 
         funnel_actions = funnel.action_set.annotate(n=Count("actioncounter"))
@@ -201,7 +211,7 @@ class FunnelStatisticsView(views.APIView):
         counters = (
             models.ActionCounter.objects.filter(
                 action__funnel=funnel,
-                action__funnel__project__tenant__owner=request.user,
+                action__funnel__project__tenant__owners=request.user,
             )
             .annotate(period=trunc_fn)
         )
@@ -248,7 +258,7 @@ def index(request):
 
 
 def extension(request):
-    return render(request, "extension.js", content_type="application/javascript")
+    return render(request, "extension.js", content_type="application/javascript; charset=utf-8")
 
 
 def sample(request):
@@ -256,4 +266,8 @@ def sample(request):
 
 
 def sample_js(request):
-    return render(request, "sample.js", content_type="application/javascript")
+    return render(request, "sample.js", content_type="application/javascript; charset=utf-8")
+
+
+def style_css(request):
+    return render(request, "style.css", content_type="text/css")

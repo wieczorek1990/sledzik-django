@@ -1,5 +1,15 @@
 # Śledzik
 
+Tenants have multiple owners. The admin provides an owners selector, and the
+tenant API accepts an `owners` list of user IDs. Creation always includes the
+requesting user; existing owners can update the list, which cannot be empty.
+All owners share access to the tenant's projects, funnels, actions, and statistics.
+
+The dashboard's Total visits counter sums recorded action hits across all tenants
+owned by the signed-in user. It refreshes every 30 seconds while the page is
+visible. `GET /api/visits/` returns `{"visits": 123}` and requires a user auth token.
+This measures action hits, including repeat hits, rather than separate page loads.
+
 See the [browser integration guide](docs/integration.md) for setup with
 `extension.js` and `sample.js`, client methods, token handling, and troubleshooting.
 

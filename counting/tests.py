@@ -24,7 +24,8 @@ class AuthAndActionsCounterTest(TestCase):
         )
         self.token = Token.objects.create(user=self.user)
 
-        self.tenant = models.Tenant.objects.create(name="Tenant 1", owner=self.user)
+        self.tenant = models.Tenant.objects.create(name="Tenant 1")
+        self.tenant.owners.add(self.user)
         self.project = models.Project.objects.create(
             name="Project 1", tenant=self.tenant
         )
@@ -268,11 +269,13 @@ class AuthAndActionsCounterTest(TestCase):
 
         resp_ext = self.client.get("/extension/")
         self.assertEqual(resp_ext.status_code, 200)
-        self.assertEqual(resp_ext["Content-Type"], "application/javascript")
+        self.assertEqual(resp_ext["Content-Type"], "application/javascript; charset=utf-8")
+        self.assertIn("window.Śledzik", resp_ext.content.decode("utf-8"))
 
         resp_js = self.client.get(reverse("sample-js"))
         self.assertEqual(resp_js.status_code, 200)
-        self.assertEqual(resp_js["Content-Type"], "application/javascript")
+        self.assertEqual(resp_js["Content-Type"], "application/javascript; charset=utf-8")
+        self.assertIn("window.Śledzik", resp_js.content.decode("utf-8"))
         self.assertIn(reverse("api-register-anonymous").encode(), resp_js.content)
         self.assertIn(reverse("token-actions").encode(), resp_js.content)
         self.assertIn(b"window.", resp_js.content)
@@ -492,7 +495,8 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(result.status_code, 404)
 
     def test_actions_for_token_are_scoped_to_tenant(self):
-        other_tenant = models.Tenant.objects.create(name="Other tenant", owner=self.staff_user)
+        other_tenant = models.Tenant.objects.create(name="Other tenant")
+        other_tenant.owners.add(self.staff_user)
         project = models.Project.objects.create(name="Other project", tenant=other_tenant)
         funnel = models.Funnel.objects.create(name="Other funnel", project=project)
         models.Action.objects.create(name="Hidden action", funnel=funnel)
@@ -514,9 +518,99 @@ class AuthAndActionsCounterTest(TestCase):
                 self.assertEqual(result.status_code, 401)
 
     def test_actions_for_token_empty_tenant(self):
-        tenant = models.Tenant.objects.create(name="Empty tenant", owner=self.user)
+        tenant = models.Tenant.objects.create(name="Empty tenant")
+        tenant.owners.add(self.user)
         result = self.client.post(
             reverse("token-actions"), {"token": str(tenant.token)}, content_type="application/json"
         )
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json(), [])
+
+    def test_tenant_creation_includes_creator_and_selected_owners(self):
+        for name, payload, expected in [
+            ("Personal", {}, {self.user.pk}),
+            ("Shared", {"owners": [self.staff_user.pk]}, {self.user.pk, self.staff_user.pk}),
+        ]:
+            result = self.client.post(
+                "/api/tenants/", {"name": name, **payload},
+                content_type="application/json", HTTP_AUTHORIZATION=f"Token {self.token.key}",
+            )
+            self.assertEqual(result.status_code, 201)
+            self.assertEqual(set(result.json()["owners"]), expected)
+
+    def test_shared_owners_can_access_resources_without_duplicating_counts(self):
+        self.tenant.owners.add(self.staff_user)
+        counter = models.ActionCounter.objects.create(action=self.action, user=self.user)
+        for user in [self.user, self.staff_user]:
+            token, _ = Token.objects.get_or_create(user=user)
+            headers = {"HTTP_AUTHORIZATION": f"Token {token.key}"}
+            for resource, pk in [
+                ("tenants", self.tenant.pk), ("projects", self.project.pk),
+                ("funnels", self.funnel.pk), ("actions", self.action.pk),
+                ("action-counters", counter.pk),
+            ]:
+                with self.subTest(user=user.pk, resource=resource):
+                    result = self.client.get(f"/api/{resource}/", **headers)
+                    self.assertEqual(result.status_code, 200)
+                    self.assertEqual([item["id"] for item in result.json()], [pk])
+            stats = self.client.get(f"/api/funnels/{self.funnel.pk}/statistics/", **headers)
+            self.assertEqual(stats.status_code, 200)
+            self.assertEqual(stats.json()["result"], {"Funnel 1": {"ready": 1}})
+            self.assertEqual(stats.json()["time_series"][0]["count"], 1)
+            project = self.client.post(
+                "/api/projects/", {"name": f"Shared {user.pk}", "tenant": self.tenant.pk},
+                content_type="application/json", **headers,
+            )
+            self.assertEqual(project.status_code, 201)
+            models.Project.objects.get(pk=project.json()["id"]).delete()
+
+    def test_owners_can_manage_membership_and_cannot_leave_tenant_ownerless(self):
+        url = f"/api/tenants/{self.tenant.pk}/"
+        headers = {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
+        for owners in [[], [999999]]:
+            result = self.client.patch(url, {"owners": owners}, content_type="application/json", **headers)
+            self.assertEqual(result.status_code, 400)
+        result = self.client.patch(
+            url, {"owners": [self.user.pk, self.staff_user.pk]}, content_type="application/json", **headers
+        )
+        self.assertEqual(result.status_code, 200)
+        self.tenant.owners.remove(self.user)
+        self.assertEqual(self.client.get(url, **headers).status_code, 404)
+
+    def test_non_owner_cannot_manage_tenant_or_attach_resources(self):
+        token = Token.objects.create(user=self.staff_user)
+        headers = {"HTTP_AUTHORIZATION": f"Token {token.key}"}
+        result = self.client.patch(
+            f"/api/tenants/{self.tenant.pk}/", {"owners": [self.staff_user.pk]},
+            content_type="application/json", **headers,
+        )
+        self.assertEqual(result.status_code, 404)
+        for resource, payload in [
+            ("projects", {"name": "Forbidden", "tenant": self.tenant.pk}),
+            ("funnels", {"name": "Forbidden", "project": self.project.pk}),
+            ("actions", {"name": "Forbidden", "funnel": self.funnel.pk}),
+            ("action-counters", {"action": self.action.pk}),
+        ]:
+            result = self.client.post(f"/api/{resource}/", payload, content_type="application/json", **headers)
+            self.assertEqual(result.status_code, 400)
+
+    def test_global_visits_counts_all_owned_tenants_once(self):
+        self.tenant.owners.add(self.staff_user)
+        models.ActionCounter.objects.create(action=self.action, user=self.user)
+        models.ActionCounter.objects.create(action=self.action, user=self.user)
+        for name, owner in [("Owned", self.user), ("Unrelated", self.staff_user)]:
+            tenant = models.Tenant.objects.create(name=name)
+            tenant.owners.add(owner)
+            project = models.Project.objects.create(name=name, tenant=tenant)
+            funnel = models.Funnel.objects.create(name=name, project=project)
+            action = models.Action.objects.create(name=name, funnel=funnel)
+            models.ActionCounter.objects.create(action=action, user=self.user)
+        result = self.client.get(reverse("global-visits"), HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), {"visits": 3})
+
+    def test_global_visits_empty_and_requires_authentication(self):
+        self.assertEqual(self.client.get(reverse("global-visits")).status_code, 401)
+        result = self.client.get(reverse("global-visits"), HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), {"visits": 0})

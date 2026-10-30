@@ -23,11 +23,16 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 
 class TenantSerializer(serializers.ModelSerializer):
+    owners = serializers.PrimaryKeyRelatedField(
+        many=True, queryset=User.objects.all(), required=False, allow_empty=False
+    )
+
     class Meta:
         model = models.Tenant
         fields = (
             "id",
             "name",
+            "owners",
         )
 
 
@@ -38,7 +43,7 @@ class ProjectSerializer(serializers.ModelSerializer):
 
     def validate_tenant(self, value):
         # value is the Tenant object passed in the request
-        if value.owner != self.context["request"].user:
+        if not value.owners.filter(pk=self.context["request"].user.pk).exists():
             raise serializers.ValidationError("You do not own this tenant.")
         return value
 
@@ -50,7 +55,7 @@ class FunnelSerializer(serializers.ModelSerializer):
 
     def validate_project(self, value):
         # value is the Project object
-        if value.tenant.owner != self.context["request"].user:
+        if not value.tenant.owners.filter(pk=self.context["request"].user.pk).exists():
             raise serializers.ValidationError("You do not own this project.")
         return value
 
@@ -62,7 +67,7 @@ class ActionSerializer(serializers.ModelSerializer):
 
     def validate_funnel(self, value):
         # value is the Funnel object
-        if value.project.tenant.owner != self.context["request"].user:
+        if not value.project.tenant.owners.filter(pk=self.context["request"].user.pk).exists():
             raise serializers.ValidationError("You do not own this funnel.")
         return value
 
@@ -74,6 +79,6 @@ class ActionCounterSerializer(serializers.ModelSerializer):
 
     def validate_action(self, value):
         # value is the Action object
-        if value.funnel.project.tenant.owner != self.context["request"].user:
+        if not value.funnel.project.tenant.owners.filter(pk=self.context["request"].user.pk).exists():
             raise serializers.ValidationError("You do not own this action.")
         return value

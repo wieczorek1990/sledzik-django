@@ -5,6 +5,7 @@ from counting import models
 
 class TenantAdmin(admin.ModelAdmin):
     readonly_fields = ("token",)
+    filter_horizontal = ("owners",)
 
 
 class ActionCounterAdmin(admin.ModelAdmin):

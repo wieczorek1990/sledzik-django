@@ -5,4 +5,4 @@ set -euo pipefail
 
 . ./bin/envs.sh
 ./manage.py collectstatic --noinput
-daphne -b 0.0.0.0 -p 8000 śledzik.asgi:application
+daphne -b 0.0.0.0 -p 80 śledzik.asgi:application
