@@ -136,7 +136,7 @@ requires a user auth token and a tenant token matching that action's tenant.
 | localStorage key | Value |
 | --- | --- |
 | `authorization` | User auth token, managed by the extension |
-| `sledzik.sample.tenantToken` | Tenant token, managed by the sample |
+| `śledzik.sample.tenantToken` | Tenant token, managed by the sample |
 
 Storage belongs to the page's origin. If storage is unavailable, the extension
 keeps the user token in memory and the sample uses the entered tenant token for

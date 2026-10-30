@@ -5,7 +5,7 @@ $(function () {
     const $hitButton = $("#hit");
     const $userInfo = $("#user-info");
     const $status = $("#status");
-    const tokenStorageKey = "sledzik.sample.tenantToken";
+    const tokenStorageKey = "śledzik.sample.tenantToken";
     let authorizationPromise = null;
     let session = 0;
     let actionsRequest = 0;
