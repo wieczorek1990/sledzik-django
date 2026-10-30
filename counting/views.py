@@ -253,3 +253,7 @@ def extension(request):
 
 def sample(request):
     return render(request, "sample.html")
+
+
+def sample_js(request):
+    return render(request, "sample.js", content_type="application/javascript")

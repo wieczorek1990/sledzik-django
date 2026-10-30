@@ -262,13 +262,21 @@ class AuthAndActionsCounterTest(TestCase):
     def test_sample_and_extension_views(self):
         resp_sample = self.client.get("/sample/")
         self.assertEqual(resp_sample.status_code, 200)
-        self.assertIn(reverse("api-register-anonymous").encode(), resp_sample.content)
+        self.assertIn(reverse("sample-js").encode(), resp_sample.content)
         self.assertIn(b'id="token"', resp_sample.content)
         self.assertIn(b"Hit", resp_sample.content)
 
         resp_ext = self.client.get("/extension/")
         self.assertEqual(resp_ext.status_code, 200)
         self.assertEqual(resp_ext["Content-Type"], "application/javascript")
+
+        resp_js = self.client.get(reverse("sample-js"))
+        self.assertEqual(resp_js.status_code, 200)
+        self.assertEqual(resp_js["Content-Type"], "application/javascript")
+        self.assertIn(reverse("api-register-anonymous").encode(), resp_js.content)
+        self.assertIn(reverse("token-actions").encode(), resp_js.content)
+        self.assertIn(b"window.", resp_js.content)
+        self.assertNotIn(b"{%", resp_js.content)
 
     def test_main_page_requires_staff_account(self):
         # Anonymous user should be redirected

@@ -1,11 +1,16 @@
 # Śledzik
 
+See the [browser integration guide](docs/integration.md) for setup with
+`extension.js` and `sample.js`, client methods, token handling, and troubleshooting.
+
 Anonymous registration: `POST /api/register/anonymous/` with an empty JSON body
 (`{}`). Returns HTTP 201 with `token`, `username`, and `id`. The generated user
 has no usable password. Use the token in the `Authorization: Token <token>` header.
 
 The sample loads its action chooser with `POST /api/actions/for-token/`, sending
 `{"token": "<tenant token>"}`. The endpoint returns only that tenant's actions.
+Its behavior lives in `templates/sample.js`, served at `/sample.js`, and uses
+`window.Śledzik` from `extension.js` to authorize, send hits, and log out.
 
 `GET /api/funnels/<id>/statistics/` returns time-series entries with `created`,
 `action`, and `count`. By default, hits are grouped by minute and action, with
