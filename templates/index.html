@@ -2,12 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Index</title>
+    {% include 'theme.html' %}
     <style>
-        body { font-family: system-ui, sans-serif; margin: 40px; }
         #chart { max-width: 900px; height: 500px; }
-        #auth-error { color: red; }
-        #auth-status { color: green; }
         label { display: inline-block; min-width: 60px; }
     </style>
 </head>
@@ -77,7 +76,7 @@
         <label for="chart-action">Action:</label>
         <select id="chart-action" aria-label="Chart action"></select>
     </span>
-    <p id="chart-error" style="color:red" hidden></p>
+    <p id="chart-error" hidden></p>
     <div id="chart"></div>
 </div><br/>
 
@@ -188,6 +187,16 @@ $(document).ready(function () {
 
     let currentStats = null;
     let statisticsRequest = 0;
+    const plotTheme = {
+        layout: {
+            paper_bgcolor: '#a6dbff',
+            plot_bgcolor: '#dbf1ff',
+            font: { color: '#586e75', family: 'system-ui, sans-serif' },
+            colorway: ['#657b83', '#859900', '#586e75', '#93a1a1'],
+            xaxis: { gridcolor: '#a6dbff', linecolor: '#93a1a1', zerolinecolor: '#93a1a1' },
+            yaxis: { gridcolor: '#a6dbff', linecolor: '#93a1a1', zerolinecolor: '#93a1a1' }
+        }
+    };
 
     function renderCurrentChart() {
         if (!currentStats) return;
@@ -221,6 +230,7 @@ $(document).ready(function () {
             x: entries.map(e => e.value),
             textinfo: 'value+percent initial'
         }], {
+            template: plotTheme,
             title: funnelName ? `❖ Actions Funnel (${funnelName})` : '❖ Actions Funnel',
             height: 500,                                  // more vertical room for stages
             margin: { l: 150, r: 50, t: 60, b: 40 },      // widen left margin for labels
@@ -243,13 +253,14 @@ $(document).ready(function () {
 
         if (!timeSeriesData || timeSeriesData.length === 0) {
             Plotly.newPlot(containerId, [], {
+                template: plotTheme,
                 title: funnelName ? `❖ ${title} (${funnelName})` : `❖ ${title}`,
                 annotations: [{
                     text: uniqueViewers ? '❖ No viewers recorded yet.' : '❖ No action counters recorded yet.',
                     xref: 'paper',
                     yref: 'paper',
                     showarrow: false,
-                    font: { size: 16, color: '#888' }
+                    font: { size: 16, color: '#586e75' }
                 }],
                 xaxis: { title: 'Created' },
                 yaxis: { title: yTitle, rangemode: 'tozero', dtick: 1 },
@@ -275,6 +286,7 @@ $(document).ready(function () {
             : undefined;
 
         Plotly.newPlot(containerId, traces, {
+            template: plotTheme,
             title: funnelName ? `❖ ${title} (${funnelName})` : `❖ ${title}`,
             dragmode: 'pan',
             xaxis: {

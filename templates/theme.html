@@ -1,0 +1,36 @@
+<style>
+    :root {
+        --background: #a6dbff;
+        --surface: #dbf1ff;
+        --text: #586e75;
+        --primary: #657b83;
+        --secondary: #93a1a1;
+        --accent: #859900;
+    }
+    body {
+        margin: 40px;
+        background: var(--background);
+        color: var(--text);
+        font-family: system-ui, sans-serif;
+    }
+    input, select, button {
+        box-sizing: border-box;
+        padding: 8px 12px;
+        border: 1px solid var(--primary);
+        border-radius: 4px;
+        background: var(--surface);
+        color: var(--text);
+        font: inherit;
+    }
+    button { cursor: pointer; font-weight: 600; }
+    button:hover:not(:disabled) { border-color: var(--accent); }
+    input:focus-visible, select:focus-visible, button:focus-visible {
+        outline: 2px solid var(--text);
+        outline-offset: 2px;
+    }
+    input[type="radio"] { accent-color: var(--accent); }
+    button:disabled, select:disabled { cursor: default; opacity: 0.65; }
+    #auth-error, #chart-error { color: var(--text); font-weight: bold; }
+    #auth-status { color: var(--text); border-left: 3px solid var(--accent); padding-left: 8px; }
+    a { color: var(--text); }
+</style>
