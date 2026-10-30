@@ -10,11 +10,10 @@ Sample.
     <label for="token">Token: </label>
     <input type="text" id="token" name="token" value="" size="40">
     <label for="action">Action: </label>
-    <select id="action" name="action">
-        <option value="1">Ready</option>
-        <option value="2">Email</option>
+    <select id="action" name="action" disabled>
+        <option value="">Enter a token to load actions</option>
     </select>
-    <button id="hit" type="button">Hit</button>
+    <button id="hit" type="button" disabled>Hit</button>
     <button id="logout" type="button">Logout</button>
 </div>
 <div id="user-info" style="margin-top: 10px; font-weight: bold;"></div>
@@ -31,6 +30,40 @@ Sample.
     const tokenStorageKey = "sledzik.sample.tenantToken";
     let authorizationPromise = null;
     let session = 0;
+    let actionsRequest = 0;
+    let actionsTimer;
+
+    async function loadActions() {
+        const requestId = ++actionsRequest;
+        const token = rememberToken();
+        const previousAction = actionInput.value;
+        actionInput.disabled = true;
+        hitButton.disabled = true;
+        actionInput.replaceChildren(new Option(token ? "Loading actions..." : "Enter a token to load actions", ""));
+        if (!token) return;
+        try {
+            const response = await fetch("{% url 'token-actions' %}", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ token })
+            });
+            if (!response.ok) throw new Error(`Could not load actions (HTTP ${response.status}).`);
+            const actions = await response.json();
+            if (requestId !== actionsRequest) return;
+            actionInput.replaceChildren(...actions.map(action =>
+                new Option(`${action.name} (#${action.id})`, String(action.id))
+            ));
+            if (actions.some(action => String(action.id) === previousAction)) actionInput.value = previousAction;
+            if (!actions.length) actionInput.replaceChildren(new Option("No actions for this token", ""));
+            actionInput.disabled = !actions.length;
+            hitButton.disabled = !actions.length;
+            status.textContent = "";
+        } catch (error) {
+            if (requestId !== actionsRequest) return;
+            actionInput.replaceChildren(new Option("Actions unavailable", ""));
+            status.textContent = error.message;
+        }
+    }
 
     try {
         tokenInput.value = window.localStorage.getItem(tokenStorageKey) || "";
@@ -76,41 +109,51 @@ Sample.
         return authorizationPromise;
     }
 
-    tokenInput.addEventListener("input", rememberToken);
-    tokenInput.addEventListener("change", rememberToken);
+    function tokenChanged() {
+        rememberToken();
+        actionsRequest++;
+        actionInput.disabled = true;
+        hitButton.disabled = true;
+        clearTimeout(actionsTimer);
+        actionsTimer = setTimeout(loadActions, 300);
+    }
+    tokenInput.addEventListener("input", tokenChanged);
+    tokenInput.addEventListener("change", tokenChanged);
     document.getElementById("logout").addEventListener("click", () => {
         session++;
         authorizationPromise = null;
         tracker.setAuthToken(null);
         userInfo.textContent = "Logged out.";
         status.textContent = "";
-        hitButton.disabled = false;
+        hitButton.disabled = actionInput.disabled;
     });
     hitButton.addEventListener("click", async () => {
         const currentSession = session;
         const token = rememberToken();
         const actionId = actionInput.value;
-        if (!token) {
-            status.textContent = "Error: Token cannot be empty. Hits will not be sent.";
+        if (!token || actionInput.disabled || !actionId) {
+            status.textContent = "Enter a valid token and choose an action.";
             return;
         }
         hitButton.disabled = true;
+        const currentActionsRequest = actionsRequest;
         status.textContent = "Sending hit...";
         try {
             const authToken = await authorize();
-            if (currentSession !== session) return;
+            if (currentSession !== session || currentActionsRequest !== actionsRequest) return;
             const response = await tracker.hit(tracker.getUrl(actionId), token, null, authToken);
-            if (currentSession !== session) return;
+            if (currentSession !== session || currentActionsRequest !== actionsRequest) return;
             status.textContent = response.ok
                 ? "Hit sent successfully!"
                 : "Hit failed (e.g. invalid or rejected token).";
         } catch (error) {
-            if (currentSession === session) status.textContent = "Error sending hit: " + error.message;
+            if (currentSession === session && currentActionsRequest === actionsRequest) status.textContent = "Error sending hit: " + error.message;
         } finally {
-            if (currentSession === session) hitButton.disabled = false;
+            if (currentSession === session && currentActionsRequest === actionsRequest) hitButton.disabled = actionInput.disabled;
         }
     });
 
+    loadActions();
     authorize().catch(error => {
         if (session === 0) status.textContent = "Authorization error: " + error.message;
     });

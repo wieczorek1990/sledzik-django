@@ -100,6 +100,22 @@ class ActionViewSet(viewsets.ModelViewSet):
         )
 
 
+class TokenActionsView(views.APIView):
+    permission_classes = (permissions.AllowAny,)
+    authentication_classes = ()
+
+    def post(self, request):
+        try:
+            token = uuid.UUID(str(request.data.get("token", "")).strip())
+        except (ValueError, AttributeError):
+            return response.Response({"failure": "invalid token"}, status=401)
+        tenant = models.Tenant.objects.filter(token=token).first()
+        if tenant is None:
+            return response.Response({"failure": "invalid token"}, status=401)
+        actions = models.Action.objects.filter(funnel__project__tenant=tenant).order_by("pk")
+        return response.Response(serializers.ActionSerializer(actions, many=True).data)
+
+
 class ActionCounterViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.ActionCounterSerializer
 
@@ -184,12 +200,15 @@ class FunnelStatisticsView(views.APIView):
         if granularity == "created":
             grouping.append("created_ns")
 
-        time_series_qs = (
+        counters = (
             models.ActionCounter.objects.filter(
                 action__funnel=funnel,
                 action__funnel__project__tenant__owner=request.user,
             )
             .annotate(period=trunc_fn)
+        )
+        time_series_qs = (
+            counters
             .values(*grouping)
             .annotate(count=Count("id"))
             .order_by(*grouping)
@@ -211,12 +230,20 @@ class FunnelStatisticsView(views.APIView):
             }
             for entry in time_series_qs
         ]
+        viewer_grouping = [key for key in grouping if key != "action__name"]
+        unique_viewers = [
+            {"created": format_created(entry), "count": entry["count"]}
+            for entry in counters.values(*viewer_grouping)
+            .annotate(count=Count("user_id", distinct=True))
+            .order_by(*viewer_grouping)
+        ]
 
         return response.Response(
             {
                 "success": "ok",
                 "result": {funnel.name: funnel_actions_dictionary},
                 "time_series": time_series,
+                "unique_viewers": unique_viewers,
             }
         )
 

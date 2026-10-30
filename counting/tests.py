@@ -305,6 +305,7 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(data["success"], "ok")
         self.assertEqual(data["result"], {"Funnel 1": {"ready": 0}})
         self.assertEqual(data["time_series"], [])
+        self.assertEqual(data["unique_viewers"], [])
 
     def test_funnel_statistics_with_time_series(self):
         action2 = models.Action.objects.create(name="email", funnel=self.funnel)
@@ -449,3 +450,68 @@ class AuthAndActionsCounterTest(TestCase):
                     {"created": start.isoformat(), "action": "ready", "count": 2},
                     {"created": end.isoformat(), "action": "ready", "count": 1},
                 ])
+
+    def test_unique_viewers_deduplicates_users_across_actions_per_window(self):
+        action2 = models.Action.objects.create(name="email", funnel=self.funnel)
+        other_user = User.objects.create_user(username="viewer")
+        start = datetime(2026, 10, 30, 12, tzinfo=timezone.utc)
+        for user, action, created in [
+            (self.user, self.action, start),
+            (self.user, self.action, start + timedelta(seconds=1)),
+            (self.user, action2, start + timedelta(seconds=2)),
+            (other_user, action2, start + timedelta(seconds=3)),
+            (self.user, self.action, start + timedelta(minutes=1)),
+        ]:
+            counter = models.ActionCounter.objects.create(action=action, user=user)
+            models.ActionCounter.objects.filter(pk=counter.pk).update(created=created)
+        other_funnel = models.Funnel.objects.create(name="Other", project=self.project)
+        other_action = models.Action.objects.create(name="other", funnel=other_funnel)
+        other_counter = models.ActionCounter.objects.create(action=other_action, user=self.staff_user)
+        models.ActionCounter.objects.filter(pk=other_counter.pk).update(created=start)
+        result = self.client.get(
+            f"/api/funnels/{self.funnel.pk}/statistics/",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json()["unique_viewers"], [
+            {"created": start.isoformat(), "count": 2},
+            {"created": (start + timedelta(minutes=1)).isoformat(), "count": 1},
+        ])
+
+    def test_unique_viewers_requires_funnel_ownership(self):
+        token = Token.objects.create(user=self.staff_user)
+        result = self.client.get(
+            f"/api/funnels/{self.funnel.pk}/statistics/",
+            HTTP_AUTHORIZATION=f"Token {token.key}",
+        )
+        self.assertEqual(result.status_code, 404)
+
+    def test_actions_for_token_are_scoped_to_tenant(self):
+        other_tenant = models.Tenant.objects.create(name="Other tenant", owner=self.staff_user)
+        project = models.Project.objects.create(name="Other project", tenant=other_tenant)
+        funnel = models.Funnel.objects.create(name="Other funnel", project=project)
+        models.Action.objects.create(name="Hidden action", funnel=funnel)
+        result = self.client.post(
+            reverse("token-actions"), {"token": f" {self.tenant.token} "},
+            content_type="application/json",
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), [
+            {"id": self.action.pk, "name": self.action.name, "funnel": self.funnel.pk}
+        ])
+
+    def test_actions_for_token_rejects_invalid_tokens(self):
+        for token in [None, "", "invalid", str(uuid.uuid4())]:
+            with self.subTest(token=token):
+                result = self.client.post(
+                    reverse("token-actions"), {"token": token}, content_type="application/json"
+                )
+                self.assertEqual(result.status_code, 401)
+
+    def test_actions_for_token_empty_tenant(self):
+        tenant = models.Tenant.objects.create(name="Empty tenant", owner=self.user)
+        result = self.client.post(
+            reverse("token-actions"), {"token": str(tenant.token)}, content_type="application/json"
+        )
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json(), [])

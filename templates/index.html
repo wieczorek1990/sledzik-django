@@ -51,6 +51,10 @@
             <input type="radio" name="chart-type" value="timeseries" checked>
             Action Counters Over Time
         </label>
+        <label style="cursor: pointer; margin-right: 16px;">
+            <input type="radio" name="chart-type" value="viewers">
+            Unique Viewers Over Time
+        </label>
         <label style="cursor: pointer;">
             <input type="radio" name="chart-type" value="funnel">
             Funnel
@@ -69,8 +73,10 @@
         <option value="1min" selected>1 minute</option>
         <option value="12sec">12 seconds</option>
     </select>
-    <label for="chart-action">Action:</label>
-    <select id="chart-action" aria-label="Chart action"></select>
+    <span id="action-control">
+        <label for="chart-action">Action:</label>
+        <select id="chart-action" aria-label="Chart action"></select>
+    </span>
     <p id="chart-error" style="color:red" hidden></p>
     <div id="chart"></div>
 </div><br/>
@@ -186,8 +192,11 @@ $(document).ready(function () {
     function renderCurrentChart() {
         if (!currentStats) return;
         const chartType = $('input[name="chart-type"]:checked').val();
+        $('#action-control').toggle(chartType === 'timeseries');
         if (chartType === 'funnel') {
             renderFunnelChart('chart', currentStats.result);
+        } else if (chartType === 'viewers') {
+            renderTimeSeriesChart('chart', currentStats.unique_viewers, currentStats.result, true);
         } else {
             renderTimeSeriesChart('chart', currentStats.time_series, currentStats.result);
         }
@@ -219,29 +228,31 @@ $(document).ready(function () {
         }, { responsive: true });
     }
 
-    function renderTimeSeriesChart(containerId, timeSeriesData, resultData) {
+    function renderTimeSeriesChart(containerId, timeSeriesData, resultData, uniqueViewers = false) {
         document.getElementById('chart-error').hidden = true;
         const funnelName = Object.keys(resultData || {})[0] || '';
+        const title = uniqueViewers ? 'Unique Viewers Over Time' : 'Action Counters Over Time';
+        const yTitle = uniqueViewers ? 'Unique viewers' : 'Hits / Count';
         const actionSelect = document.getElementById('chart-action');
         const previousAction = actionSelect.value;
         const actions = Object.keys((resultData || {})[funnelName] || {});
         actionSelect.replaceChildren(...actions.map(action => new Option(action, action)));
         if (actions.includes(previousAction)) actionSelect.value = previousAction;
         const selectedAction = actionSelect.value;
-        timeSeriesData = (timeSeriesData || []).filter(item => item.action === selectedAction);
+        timeSeriesData = (timeSeriesData || []).filter(item => uniqueViewers || item.action === selectedAction);
 
         if (!timeSeriesData || timeSeriesData.length === 0) {
             Plotly.newPlot(containerId, [], {
-                title: funnelName ? `❖ Action Counters Over Time (${funnelName})` : '❖ Action Counters Over Time',
+                title: funnelName ? `❖ ${title} (${funnelName})` : `❖ ${title}`,
                 annotations: [{
-                    text: '❖ No action counters recorded yet.',
+                    text: uniqueViewers ? '❖ No viewers recorded yet.' : '❖ No action counters recorded yet.',
                     xref: 'paper',
                     yref: 'paper',
                     showarrow: false,
                     font: { size: 16, color: '#888' }
                 }],
                 xaxis: { title: 'Created' },
-                yaxis: { title: 'Count', rangemode: 'tozero' },
+                yaxis: { title: yTitle, rangemode: 'tozero', dtick: 1 },
                 height: 500,
                 margin: { l: 60, r: 50, t: 60, b: 60 }
             }, { responsive: true });
@@ -249,7 +260,7 @@ $(document).ready(function () {
         }
 
         const traces = [{
-            name: selectedAction,
+            name: uniqueViewers ? 'Unique viewers' : selectedAction,
             x: timeSeriesData.map(item => item.created),
             y: timeSeriesData.map(item => item.count),
             type: 'scatter',
@@ -264,7 +275,7 @@ $(document).ready(function () {
             : undefined;
 
         Plotly.newPlot(containerId, traces, {
-            title: funnelName ? `❖ Action Counters Over Time (${funnelName})` : '❖ Action Counters Over Time',
+            title: funnelName ? `❖ ${title} (${funnelName})` : `❖ ${title}`,
             dragmode: 'pan',
             xaxis: {
                 title: 'Created',
@@ -272,7 +283,7 @@ $(document).ready(function () {
                 range: visibleRange,
                 rangeslider: { visible: true, thickness: 0.15 }
             },
-            yaxis: { title: 'Hits / Count', rangemode: 'tozero', fixedrange: true },
+            yaxis: { title: yTitle, rangemode: 'tozero', fixedrange: true, tickformat: ',d' },
             height: 500,
             margin: { l: 60, r: 50, t: 60, b: 60 }
         }, { responsive: true, scrollZoom: true });

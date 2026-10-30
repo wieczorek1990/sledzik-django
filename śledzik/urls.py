@@ -30,6 +30,7 @@ urlpatterns = [
         views.AnonymousRegisterView.as_view(),
         name="api-register-anonymous",
     ),
+    path("api/actions/for-token/", views.TokenActionsView.as_view(), name="token-actions"),
     path("api/", include(router.urls)),
     path("api/actions/<int:pk>/hit/", views.ActionsCounterView.as_view()),
     path("api/funnels/<int:pk>/statistics/", views.FunnelStatisticsView.as_view()),
