@@ -42,30 +42,26 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), {"token": self.token.key})
 
-    def test_counter_preserves_nanoseconds(self):
-        timestamp = 1_793_361_600_123_456_789
-        with patch("counting.fields.time.time_ns", return_value=timestamp):
+    def test_counter_preserves_created_timestamp(self):
+        timestamp = datetime(2026, 10, 30, 12, microsecond=123456, tzinfo=timezone.utc)
+        with patch("django.utils.timezone.now", return_value=timestamp):
             counter = models.ActionCounter.objects.create(
                 action=self.action, user=self.user
             )
         counter.refresh_from_db()
-        self.assertEqual(counter.created_ns, timestamp)
-        self.assertEqual(
-            counter.created,
-            datetime(2026, 10, 30, 12, microsecond=123456, tzinfo=timezone.utc),
-        )
-        self.assertEqual(ActionCounterSerializer(counter).data["created_ns"], str(timestamp))
+        self.assertEqual(counter.created, timestamp)
+        self.assertNotIn("created_ns", ActionCounterSerializer(counter).data)
         counter.save()
         counter.refresh_from_db()
-        self.assertEqual(counter.created_ns, timestamp)
+        self.assertEqual(counter.created, timestamp)
 
-    def test_bulk_counter_preserves_nanoseconds(self):
-        timestamp = 1_793_361_600_123_456_789
-        with patch("counting.fields.time.time_ns", return_value=timestamp):
+    def test_bulk_counter_preserves_created_timestamp(self):
+        timestamp = datetime(2026, 10, 30, 12, microsecond=123456, tzinfo=timezone.utc)
+        with patch("django.utils.timezone.now", return_value=timestamp):
             models.ActionCounter.objects.bulk_create([
                 models.ActionCounter(action=self.action, user=self.user)
             ])
-        self.assertEqual(models.ActionCounter.objects.get().created_ns, timestamp)
+        self.assertEqual(models.ActionCounter.objects.get().created, timestamp)
 
     def test_api_auth_no_slash_success(self):
         response = self.client.post(
@@ -338,8 +334,9 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertIsNotNone(email_entry["created"])
 
     def test_statistics_exact_created_timestamp(self):
-        for timestamp in [1_793_361_600_123_456_789, 1_793_361_600_123_456_790]:
-            with patch("counting.fields.time.time_ns", return_value=timestamp):
+        for microsecond in [123456, 123457]:
+            timestamp = datetime(2026, 10, 30, 12, microsecond=microsecond, tzinfo=timezone.utc)
+            with patch("django.utils.timezone.now", return_value=timestamp):
                 models.ActionCounter.objects.create(action=self.action, user=self.user)
         response = self.client.get(
             f"/api/funnels/{self.funnel.pk}/statistics/?granularity=created",
@@ -347,8 +344,8 @@ class AuthAndActionsCounterTest(TestCase):
         )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json()["time_series"], [
-            {"created": "2026-10-30T12:00:00.123456789+00:00", "action": "ready", "count": 1},
-            {"created": "2026-10-30T12:00:00.123456790+00:00", "action": "ready", "count": 1},
+            {"created": "2026-10-30T12:00:00.123456+00:00", "action": "ready", "count": 1},
+            {"created": "2026-10-30T12:00:00.123457+00:00", "action": "ready", "count": 1},
         ])
 
     def test_statistics_groups_by_bucket_and_action(self):

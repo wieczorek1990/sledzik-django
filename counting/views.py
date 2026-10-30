@@ -197,8 +197,6 @@ class FunnelStatisticsView(views.APIView):
             )
 
         grouping = ["period", "action__name"]
-        if granularity == "created":
-            grouping.append("created_ns")
 
         counters = (
             models.ActionCounter.objects.filter(
@@ -216,10 +214,6 @@ class FunnelStatisticsView(views.APIView):
 
         def format_created(entry):
             period = entry["period"]
-            if granularity == "created" and entry["created_ns"] is not None:
-                nanoseconds = entry["created_ns"] % 1_000_000_000
-                timestamp = period.isoformat(timespec="seconds")
-                return f"{timestamp[:19]}.{nanoseconds:09d}{timestamp[19:]}"
             return period.isoformat() if period is not None else None
 
         time_series = [

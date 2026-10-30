@@ -68,12 +68,9 @@ class ActionSerializer(serializers.ModelSerializer):
 
 
 class ActionCounterSerializer(serializers.ModelSerializer):
-    # Strings preserve all digits in JavaScript, whose numbers lose precision here.
-    created_ns = serializers.CharField(read_only=True)
-
     class Meta:
         model = models.ActionCounter
-        fields = ("id", "action", "created", "created_ns")
+        fields = ("id", "action", "created")
 
     def validate_action(self, value):
         # value is the Action object

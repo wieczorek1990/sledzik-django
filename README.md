@@ -11,7 +11,7 @@ The sample loads its action chooser with `POST /api/actions/for-token/`, sending
 `action`, and `count`. By default, hits are grouped by minute and action, with
 `created` set to the bucket's start as an ISO timestamp. Use `?granularity=hour`,
 `day`, `month`, or `year` for grouped counts, or `?granularity=created` for exact
-nanosecond timestamps. The chart consumes `created`; browser chart
+stored timestamps (Django's standard microsecond precision). The chart consumes `created`; browser chart
 rendering may round submillisecond timestamps.
 The chart's Time window selector offers Year, Month, Day, Hour,
 30 minutes, 15 minutes, 5 minutes, 1 minute (the default), and 12 seconds. Short API window
@@ -35,5 +35,6 @@ Serious pages:
 ```
 http://sledzik.soiree.tech:8000/admin/
 http://sledzik.soiree.tech:8000/sample/
+http://sledzik.soiree.tech:8000/extension/
 http://sledzik.soiree.tech:8000/
 ```

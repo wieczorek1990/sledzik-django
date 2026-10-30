@@ -19,60 +19,71 @@ Sample.
 <div id="user-info" style="margin-top: 10px; font-weight: bold;"></div>
 <div id="status" style="margin-top: 10px;" role="status"></div>
 
+<script src="https://code.jquery.com/jquery-4.0.0.min.js"></script>
 <script src="{% url 'extension' %}" id="sledzik-script"></script>
 <script>
+$(function () {
     const tracker = window.Śledzik;
-    const tokenInput = document.getElementById("token");
-    const actionInput = document.getElementById("action");
-    const hitButton = document.getElementById("hit");
-    const userInfo = document.getElementById("user-info");
-    const status = document.getElementById("status");
+    const $tokenInput = $("#token");
+    const $actionInput = $("#action");
+    const $hitButton = $("#hit");
+    const $userInfo = $("#user-info");
+    const $status = $("#status");
     const tokenStorageKey = "sledzik.sample.tenantToken";
     let authorizationPromise = null;
     let session = 0;
     let actionsRequest = 0;
     let actionsTimer;
 
+    async function postJSON(url, data = {}) {
+        try {
+            return await $.ajax({
+                url,
+                method: "POST",
+                contentType: "application/json",
+                dataType: "json",
+                data: JSON.stringify(data)
+            });
+        } catch (request) {
+            throw new Error(request.status ? `Request failed (HTTP ${request.status}).` : "Could not reach the server.");
+        }
+    }
+
     async function loadActions() {
         const requestId = ++actionsRequest;
         const token = rememberToken();
-        const previousAction = actionInput.value;
-        actionInput.disabled = true;
-        hitButton.disabled = true;
-        actionInput.replaceChildren(new Option(token ? "Loading actions..." : "Enter a token to load actions", ""));
+        const previousAction = $actionInput.val();
+        $actionInput.prop("disabled", true);
+        $hitButton.prop("disabled", true);
+        $actionInput.empty().append(new Option(token ? "Loading actions..." : "Enter a token to load actions", ""));
         if (!token) return;
         try {
-            const response = await fetch("{% url 'token-actions' %}", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ token })
-            });
-            if (!response.ok) throw new Error(`Could not load actions (HTTP ${response.status}).`);
-            const actions = await response.json();
+            const actions = await postJSON("{% url 'token-actions' %}", { token });
+
             if (requestId !== actionsRequest) return;
-            actionInput.replaceChildren(...actions.map(action =>
+            $actionInput.empty().append(...actions.map(action =>
                 new Option(`${action.name} (#${action.id})`, String(action.id))
             ));
-            if (actions.some(action => String(action.id) === previousAction)) actionInput.value = previousAction;
-            if (!actions.length) actionInput.replaceChildren(new Option("No actions for this token", ""));
-            actionInput.disabled = !actions.length;
-            hitButton.disabled = !actions.length;
-            status.textContent = "";
+            if (actions.some(action => String(action.id) === previousAction)) $actionInput.val(previousAction);
+            if (!actions.length) $actionInput.empty().append(new Option("No actions for this token", ""));
+            $actionInput.prop("disabled", !actions.length);
+            $hitButton.prop("disabled", !actions.length);
+            $status.text("");
         } catch (error) {
             if (requestId !== actionsRequest) return;
-            actionInput.replaceChildren(new Option("Actions unavailable", ""));
-            status.textContent = error.message;
+            $actionInput.empty().append(new Option("Actions unavailable", ""));
+            $status.text(error.message);
         }
     }
 
     try {
-        tokenInput.value = window.localStorage.getItem(tokenStorageKey) || "";
+        $tokenInput.val(window.localStorage.getItem(tokenStorageKey) || "");
     } catch (error) {
         // The sample still works when browser storage is disabled.
     }
 
     function rememberToken() {
-        const token = tokenInput.value.trim();
+        const token = $tokenInput.val().trim();
         try {
             if (token) window.localStorage.setItem(tokenStorageKey, token);
             else window.localStorage.removeItem(tokenStorageKey);
@@ -85,22 +96,16 @@ Sample.
     async function authorize() {
         const savedToken = tracker.getAuthToken();
         if (savedToken) {
-            userInfo.textContent = "Authorized with saved anonymous token.";
+            $userInfo.text("Authorized with saved anonymous token.");
             return savedToken;
         }
         if (!authorizationPromise) {
             const currentSession = session;
             authorizationPromise = (async () => {
-                const response = await fetch("{% url 'api-register-anonymous' %}", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: "{}"
-                });
-                if (!response.ok) throw new Error(`Authorization failed (HTTP ${response.status}).`);
-                const data = await response.json();
+                const data = await postJSON("{% url 'api-register-anonymous' %}");
                 if (currentSession !== session) return null;
                 tracker.setAuthToken(data.token);
-                userInfo.textContent = "Authorized as: " + data.username;
+                $userInfo.text("Authorized as: " + data.username);
                 return data.token;
             })().finally(() => {
                 if (currentSession === session) authorizationPromise = null;
@@ -112,51 +117,51 @@ Sample.
     function tokenChanged() {
         rememberToken();
         actionsRequest++;
-        actionInput.disabled = true;
-        hitButton.disabled = true;
+        $actionInput.prop("disabled", true);
+        $hitButton.prop("disabled", true);
         clearTimeout(actionsTimer);
         actionsTimer = setTimeout(loadActions, 300);
     }
-    tokenInput.addEventListener("input", tokenChanged);
-    tokenInput.addEventListener("change", tokenChanged);
-    document.getElementById("logout").addEventListener("click", () => {
+    $tokenInput.on("input change", tokenChanged);
+    $("#logout").on("click", () => {
         session++;
         authorizationPromise = null;
         tracker.setAuthToken(null);
-        userInfo.textContent = "Logged out.";
-        status.textContent = "";
-        hitButton.disabled = actionInput.disabled;
+        $userInfo.text("Logged out.");
+        $status.text("");
+        $hitButton.prop("disabled", $actionInput.prop("disabled"));
     });
-    hitButton.addEventListener("click", async () => {
+    $hitButton.on("click", async () => {
         const currentSession = session;
         const token = rememberToken();
-        const actionId = actionInput.value;
-        if (!token || actionInput.disabled || !actionId) {
-            status.textContent = "Enter a valid token and choose an action.";
+        const actionId = $actionInput.val();
+        if (!token || $actionInput.prop("disabled") || !actionId) {
+            $status.text("Enter a valid token and choose an action.");
             return;
         }
-        hitButton.disabled = true;
+        $hitButton.prop("disabled", true);
         const currentActionsRequest = actionsRequest;
-        status.textContent = "Sending hit...";
+        $status.text("Sending hit...");
         try {
             const authToken = await authorize();
             if (currentSession !== session || currentActionsRequest !== actionsRequest) return;
             const response = await tracker.hit(tracker.getUrl(actionId), token, null, authToken);
             if (currentSession !== session || currentActionsRequest !== actionsRequest) return;
-            status.textContent = response.ok
+            $status.text(response.ok
                 ? "Hit sent successfully!"
-                : "Hit failed (e.g. invalid or rejected token).";
+                : "Hit failed (e.g. invalid or rejected token).");
         } catch (error) {
-            if (currentSession === session && currentActionsRequest === actionsRequest) status.textContent = "Error sending hit: " + error.message;
+            if (currentSession === session && currentActionsRequest === actionsRequest) $status.text("Error sending hit: " + error.message);
         } finally {
-            if (currentSession === session && currentActionsRequest === actionsRequest) hitButton.disabled = actionInput.disabled;
+            if (currentSession === session && currentActionsRequest === actionsRequest) $hitButton.prop("disabled", $actionInput.prop("disabled"));
         }
     });
 
     loadActions();
     authorize().catch(error => {
-        if (session === 0) status.textContent = "Authorization error: " + error.message;
+        if (session === 0) $status.text("Authorization error: " + error.message);
     });
+});
 </script>
 </body>
 </html>
