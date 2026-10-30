@@ -4,6 +4,8 @@ daphne
 djangorestframework
 django-extensions
 Twisted[http2,tls]
+# Twisted 25.5 mutates TLS contexts after creating connections.
+pyOpenSSL>=26.1,<26.2
 httpie
 isort
 pandas

@@ -2,6 +2,8 @@
 
 set -eu
 
+cd "$(dirname "$0")/.."
+
 mkdir -p certificates/
 
 rm -rf mkcert/
@@ -10,7 +12,8 @@ cd mkcert/
 
 go build -o mkcert .
 ./mkcert -install
-./mkcert -cert-file cert.crt -key-file cert.key\
+./mkcert -cert-file cert.crt -key-file cert.key \
+ localhost 127.0.0.1 ::1 sledzik.soiree.tech \
  proud-amazingly-filly.ngrok-free.app
 
 cp cert.crt cert.key ../certificates/
