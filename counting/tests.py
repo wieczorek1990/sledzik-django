@@ -271,6 +271,7 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(resp_ext.status_code, 200)
         self.assertEqual(resp_ext["Content-Type"], "application/javascript; charset=utf-8")
         self.assertIn("window.Śledzik", resp_ext.content.decode("utf-8"))
+        self.assertIn("Sec-Fetch-Dest", resp_ext["Vary"])
 
         resp_js = self.client.get(reverse("sample-js"))
         self.assertEqual(resp_js.status_code, 200)
@@ -280,6 +281,22 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertIn(reverse("token-actions").encode(), resp_js.content)
         self.assertIn(b"window.", resp_js.content)
         self.assertNotIn(b"{%", resp_js.content)
+
+    def test_extension_navigation_has_favicon_but_scripts_receive_javascript(self):
+        preview = self.client.get(reverse("extension"), HTTP_SEC_FETCH_DEST="document")
+        self.assertEqual(preview.status_code, 200)
+        self.assertEqual(preview["Content-Type"], "text/html; charset=utf-8")
+        self.assertIn(b'href="/favicon.ico?v=2"', preview.content)
+        self.assertIn(b'<pre class="source-preview">', preview.content)
+        self.assertIn(b'&quot;Authorization&quot;', preview.content)
+        for url, destination in [
+            (reverse("extension"), "script"),
+            (reverse("extension") + "?raw=1", "document"),
+        ]:
+            script = self.client.get(url, HTTP_SEC_FETCH_DEST=destination)
+            self.assertEqual(script["Content-Type"], "application/javascript; charset=utf-8")
+            self.assertIn("window.Śledzik", script.content.decode())
+            self.assertNotIn(b"<html", script.content)
 
     def test_main_page_requires_staff_account(self):
         # Anonymous user should be redirected

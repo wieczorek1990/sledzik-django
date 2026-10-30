@@ -22,6 +22,7 @@ urlpatterns = [
     path("sample/", views.sample, name="sample"),
     path("sample.js", views.sample_js, name="sample-js"),
     path("style.css", views.style_css, name="style-css"),
+    path("favicon.ico", views.favicon, name="favicon"),
     path("admin/", admin.site.urls),
     path("auth/", include("rest_framework.urls")),
     path("auth/token/", rf_views.obtain_auth_token),

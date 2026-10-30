@@ -1,5 +1,6 @@
 import uuid
 
+from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import get_user_model
 from django.db import transaction
@@ -22,7 +23,10 @@ from django.db.models.functions import (
     TruncMonth,
     TruncYear,
 )
+from django.http import FileResponse
 from django.shortcuts import get_object_or_404, render
+from django.template.loader import render_to_string
+from django.views.decorators.vary import vary_on_headers
 from rest_framework import permissions, response, views, viewsets
 from rest_framework.authtoken.models import Token
 
@@ -257,7 +261,12 @@ def index(request):
     return render(request, "index.html")
 
 
+@vary_on_headers("Sec-Fetch-Dest")
 def extension(request):
+    if request.headers.get("Sec-Fetch-Dest") == "document" and "raw" not in request.GET:
+        return render(request, "extension.html", {
+            "source": render_to_string("extension.js", request=request),
+        })
     return render(request, "extension.js", content_type="application/javascript; charset=utf-8")
 
 
@@ -271,3 +280,10 @@ def sample_js(request):
 
 def style_css(request):
     return render(request, "style.css", content_type="text/css")
+
+
+def favicon(request):
+    return FileResponse(
+        (settings.BASE_DIR / "counting/static/counting/favicon.ico").open("rb"),
+        content_type="image/vnd.microsoft.icon",
+    )

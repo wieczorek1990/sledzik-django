@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>extension.js · Śledzik</title>
+    <link rel="icon" href="{% url 'favicon' %}?v=2" sizes="16x16 32x32 48x48" type="image/vnd.microsoft.icon">
+    <link rel="stylesheet" href="{% url 'style-css' %}">
+</head>
+<body>
+    {% include 'logo.html' %}
+    <h1>extension.js</h1>
+    <p><a href="{% url 'extension' %}?raw=1">View raw JavaScript</a></p>
+    <pre class="source-preview"><code>{{ source|force_escape }}</code></pre>
+</body>
+</html>
