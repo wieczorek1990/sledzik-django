@@ -9,8 +9,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 ALLOWED_HOSTS = [
-    "127.0.0.1", "localhost", "sledzik.soiree.tech",
-    "proud-amazingly-filly.ngrok-free.app"
+    "proud-amazingly-filly.ngrok-free.app",
 ]
 CSRF_TRUSTED_ORIGINS = [
     "https://proud-amazingly-filly.ngrok-free.app",

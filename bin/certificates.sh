@@ -2,14 +2,16 @@
 
 set -eu
 
+mkdir -p certificates/
+
 rm -rf mkcert/
-git clone https://github.com/FiloSottile/mkcert.git
+git clone --depth=1 https://github.com/FiloSottile/mkcert.git
 cd mkcert/
 
 go build -o mkcert .
 ./mkcert -install
-./mkcert -cert-file cert.crt -key-file cert.key \
-  localhost 127.0.0.1 sledzik.soiree.tech
+./mkcert -cert-file cert.crt -key-file cert.key\
+ proud-amazingly-filly.ngrok-free.app
 
 cp cert.crt cert.key ../certificates/
 cd ../

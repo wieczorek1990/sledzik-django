@@ -3,3 +3,4 @@
 
 export DJANGO_DEBUG="1"
 export DJANGO_SECRET_KEY="abcd"
+export PORT="1443"
