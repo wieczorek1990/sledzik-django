@@ -5,16 +5,27 @@
 set -eu
 
 DOMAIN="sledzik.soiree.tech"
+APP_DIR="/opt/sledzik"
 
 echo "=== Setting up SSL for ${DOMAIN} ==="
 
 # Create Certbot challenge directory
 echo "-- Creating Certbot challenge directory..."
 mkdir -p /var/www/certbot
+# Fix SELinux context for Certbot webroot (required on Fedora)
+semanage fcontext -a -t httpd_sys_content_t '/var/www/certbot(/.*)?' 2>/dev/null || true
+restorecon -R /var/www/certbot
+
+# Comment out default server block in nginx.conf (Fedora default catches all requests)
+echo "-- Disabling default Nginx server block..."
+if grep -q 'server_name  _;' /etc/nginx/nginx.conf; then
+    cp /etc/nginx/nginx.conf /etc/nginx/nginx.conf.bak
+    sed -i '/^    server {$/,/^    }$/s/^/    # /' /etc/nginx/nginx.conf
+fi
 
 # Copy Nginx config
 echo "-- Installing Nginx configuration..."
-cp /home/sledzik/sledzik-django/config/nginx/sledzik.conf /etc/nginx/conf.d/sledzik.conf
+cp ${APP_DIR}/config/nginx/sledzik.conf /etc/nginx/conf.d/sledzik.conf
 
 # Remove default Nginx config if it exists
 rm -f /etc/nginx/conf.d/default.conf
@@ -27,26 +38,24 @@ nginx -t
 echo "-- Reloading Nginx..."
 systemctl reload nginx
 
-# Obtain SSL certificate
+# Obtain SSL certificate using webroot method (more reliable than --nginx on Fedora)
 echo "-- Obtaining SSL certificate from Let's Encrypt..."
-certbot --nginx \
+certbot certonly --webroot -w /var/www/certbot \
     -d "$DOMAIN" \
     --non-interactive \
     --agree-tos \
-    --redirect \
-    --hsts \
-    --staple-ocsp \
-    --email "admin@soiree.tech" \
+    --register-unsafely-without-email \
     || echo "WARNING: Certbot failed. You may need to run it manually:"
-    echo "  certbot --nginx -d ${DOMAIN}"
+    echo "  certbot certonly --webroot -w /var/www/certbot -d ${DOMAIN}"
 
-# Set up automatic renewal
-echo "-- Configuring automatic certificate renewal..."
-certbot renew --dry-run || echo "WARNING: Dry run failed. Check Certbot configuration."
+# Allow Nginx to connect to backend port (SELinux)
+echo "-- Configuring SELinux for Nginx backend access..."
+semanage port -a -t http_port_t -p tcp 8000 2>/dev/null || semanage port -m -t http_port_t -p tcp 8000 2>/dev/null || true
+setsebool -P httpd_can_network_connect 1 2>/dev/null || true
 
 # Install systemd service
 echo "-- Installing systemd service..."
-cp /home/sledzik/sledzik-django/config/systemd/sledzik.service /etc/systemd/system/sledzik.service
+cp ${APP_DIR}/config/systemd/sledzik.service /etc/systemd/system/sledzik.service
 systemctl daemon-reload
 systemctl enable sledzik
 systemctl restart sledzik

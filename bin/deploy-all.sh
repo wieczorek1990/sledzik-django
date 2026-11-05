@@ -6,7 +6,7 @@
 set -eu
 
 SERVER="root@151.115.72.64"
-APP_DIR="/home/sledzik/sledzik-django"
+APP_DIR="/opt/sledzik"
 DOMAIN="sledzik.soiree.tech"
 
 cd "$(dirname "$0")/.."
@@ -40,19 +40,19 @@ rsync -avz \
     --exclude='certificates/' \
     ./ "${SERVER}:${APP_DIR}/"
 
-# Step 2: Provision server
+# Step 3: Provision server
 echo ""
-echo "=== Step 2: Provisioning server ==="
+echo "=== Step 3: Provisioning server ==="
 ssh "${SERVER}" "bash -s" < bin/provision.sh
 
-# Step 3: Deploy app
+# Step 4: Deploy app
 echo ""
-echo "=== Step 3: Deploying application ==="
+echo "=== Step 4: Deploying application ==="
 ssh "${SERVER}" "bash -s" < bin/deploy.sh
 
-# Step 4: Set up SSL and services
+# Step 5: Set up SSL and services
 echo ""
-echo "=== Step 4: Setting up SSL and services ==="
+echo "=== Step 5: Setting up SSL and services ==="
 ssh "${SERVER}" "bash -s" < bin/setup-ssl.sh
 
 echo ""

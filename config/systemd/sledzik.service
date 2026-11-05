@@ -6,9 +6,9 @@ After=network.target
 Type=simple
 User=sledzik
 Group=sledzik
-WorkingDirectory=/home/sledzik/sledzik-django
-EnvironmentFile=/home/sledzik/sledzik-django/bin/envs.sh
-ExecStart=/home/sledzik/sledzik-django/.venv/bin/daphne -b 0 -e "tcp:8000:interface=127.0.0.1" śledzik.asgi:application
+WorkingDirectory=/opt/sledzik
+EnvironmentFile=/opt/sledzik/bin/envs.sh
+ExecStart=/opt/sledzik/.venv/bin/daphne -e "tcp:8000:interface=127.0.0.1" śledzik.asgi:application
 Restart=always
 RestartSec=5
 StandardOutput=append:/var/log/sledzik/sledzik.log

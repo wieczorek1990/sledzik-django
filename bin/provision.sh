@@ -45,8 +45,8 @@ if ! id -u sledzik &>/dev/null; then
     useradd -m -s /bin/bash sledzik
 fi
 
-# Create app directory
-APP_DIR="/home/sledzik/sledzik-django"
+# Create app directory (in /opt to avoid SELinux home directory restrictions)
+APP_DIR="/opt/sledzik"
 mkdir -p "$APP_DIR"
 chown sledzik:sledzik "$APP_DIR"
 

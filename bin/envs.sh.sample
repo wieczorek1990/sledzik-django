@@ -1,6 +1,6 @@
-#!/bin/sh
-# Environmental variables.
+# Environmental variables for systemd EnvironmentFile (no 'export' prefix).
+# Copy to bin/envs.sh and set your values.
 
-export DJANGO_DEBUG="1"
-export DJANGO_SECRET_KEY="abcd"
-export PORT="1443"
+DJANGO_DEBUG=1
+DJANGO_SECRET_KEY=abcd
+PORT=1443

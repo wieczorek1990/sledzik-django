@@ -7,7 +7,7 @@ set -eu
 
 DOMAIN="sledzik.soiree.tech"
 APP_USER="sledzik"
-APP_DIR="/home/${APP_USER}/sledzik-django"
+APP_DIR="/opt/sledzik"
 VENV_DIR="${APP_DIR}/.venv"
 SECRET_KEY_FILE="/etc/sledzik/secret_key"
 
@@ -53,10 +53,9 @@ su - "${APP_USER}" -c "AUTOBAHN_USE_NVX=0 ${VENV_DIR}/bin/pip install -r ${APP_D
 # Create environment file
 echo "-- Creating environment configuration..."
 cat > "${APP_DIR}/bin/envs.sh" <<EOF
-#!/bin/sh
-export DJANGO_DEBUG="0"
-export DJANGO_SECRET_KEY="${SECRET_KEY}"
-export PORT="8000"
+DJANGO_DEBUG=0
+DJANGO_SECRET_KEY="${SECRET_KEY}"
+PORT=8000
 EOF
 chown "${APP_USER}:${APP_USER}" "${APP_DIR}/bin/envs.sh"
 chmod +x "${APP_DIR}/bin/envs.sh"
@@ -73,6 +72,6 @@ chown "${APP_USER}:${APP_USER}" "${APP_DIR}/backups"
 echo "=== Deployment complete ==="
 echo "Next steps:"
 echo "1. Install systemd service: cp config/systemd/sledzik.service /etc/systemd/system/"
-echo "2. Install Nginx config: cp config/nginx/sledzik.conf /etc/nginx/sites-available/"
+echo "2. Install Nginx config: cp config/nginx/sledzik.conf /etc/nginx/conf.d/"
 echo "3. Set up SSL: ssh root@151.115.72.64 'bash -s' < bin/setup-ssl.sh"
 echo "4. Start the service: systemctl enable --now sledzik"
