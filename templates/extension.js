@@ -33,13 +33,9 @@ window.Śledzik = (function () {
         return BASE + "/api/actions/" + encodeURIComponent(actionId) + "/hit/";
     }
 
-    function hit(url, token, callback, userAuthToken) {
+    async function hit(url, token, userAuthToken) {
         if (!token || (typeof token === "string" && !token.trim())) {
-            const error = new Error("Token cannot be empty");
-            if (typeof callback === "function") {
-                callback({ ok: false, status: 400, statusText: "Bad Request", error: error });
-            }
-            return Promise.reject(error);
+            throw new Error("Token cannot be empty");
         }
 
         const payload = JSON.stringify({ token: typeof token === "string" ? token.trim() : token });
@@ -49,16 +45,11 @@ window.Śledzik = (function () {
             headers["Authorization"] = "Token " + auth;
         }
 
-        return fetch(url, {
+        return await fetch(url, {
             method: "POST",
             headers: headers,
             body: payload,
             keepalive: true
-        }).then(function (response) {
-            if (typeof callback === "function") {
-                callback(response);
-            }
-            return response;
         });
     }
 
