@@ -30,14 +30,13 @@ echo "-- Setting up application code..."
 if [ -d "$APP_DIR/.git" ]; then
     cd "$APP_DIR"
     git pull origin main
+elif [ -d "$APP_DIR" ]; then
+    echo "  Code already present (rsynced), skipping git pull."
 else
-    rm -rf "$APP_DIR"
-    # If you have a private repo, set up SSH keys for the sledzik user first.
-    # For now, we expect the code to be copied via rsync/scp.
-    echo "WARNING: No git repo found at ${APP_DIR}."
+    echo "ERROR: Application directory not found at ${APP_DIR}."
     echo "Please copy the code to the server first:"
     echo "  rsync -avz --exclude='.venv' --exclude='db.sqlite3' --exclude='__pycache__' \\"
-    echo "       --exclude='static/' --exclude='.git/' ./ sledzik@151.115.72.64:${APP_DIR}/"
+    echo "       --exclude='static/' --exclude='.git/' ./ root@151.115.72.64:${APP_DIR}/"
     echo "Then re-run this script."
     exit 1
 fi
@@ -48,7 +47,8 @@ chown -R "${APP_USER}:${APP_USER}" "$APP_DIR"
 echo "-- Setting up Python virtual environment..."
 su - "${APP_USER}" -c "python3 -m venv ${VENV_DIR}"
 su - "${APP_USER}" -c "${VENV_DIR}/bin/pip install --upgrade pip"
-su - "${APP_USER}" -c "${VENV_DIR}/bin/pip install -r ${APP_DIR}/requirements.txt"
+# AUTOBAHN_USE_NVX=0 is required on Python 3.14+ where no pre-built wheels exist
+su - "${APP_USER}" -c "AUTOBAHN_USE_NVX=0 ${VENV_DIR}/bin/pip install -r ${APP_DIR}/requirements.txt"
 
 # Create environment file
 echo "-- Creating environment configuration..."

@@ -14,11 +14,10 @@ mkdir -p /var/www/certbot
 
 # Copy Nginx config
 echo "-- Installing Nginx configuration..."
-cp /home/sledzik/sledzik-django/config/nginx/sledzik.conf /etc/nginx/sites-available/sledzik.conf
-ln -sf /etc/nginx/sites-available/sledzik.conf /etc/nginx/sites-enabled/sledzik.conf
+cp /home/sledzik/sledzik-django/config/nginx/sledzik.conf /etc/nginx/conf.d/sledzik.conf
 
 # Remove default Nginx config if it exists
-rm -f /etc/nginx/sites-enabled/default
+rm -f /etc/nginx/conf.d/default.conf
 
 # Test Nginx config
 echo "-- Testing Nginx configuration..."

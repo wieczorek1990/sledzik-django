@@ -16,9 +16,19 @@ echo "  Deploying Śledzik to ${DOMAIN}"
 echo "  Server: ${SERVER}"
 echo "============================================"
 
-# Step 1: Copy code to server
+# Step 0: Add SSH key to agent
 echo ""
-echo "=== Step 1: Copying code to server ==="
+echo "=== Step 0: Adding SSH key ==="
+ssh-add
+
+# Step 1: Create remote directory
+echo ""
+echo "=== Step 1: Creating remote directory ==="
+ssh "${SERVER}" "mkdir -p ${APP_DIR}"
+
+# Step 2: Copy code to server
+echo ""
+echo "=== Step 2: Copying code to server ==="
 rsync -avz \
     --exclude='.venv' \
     --exclude='db.sqlite3' \

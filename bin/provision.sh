@@ -10,27 +10,34 @@ echo "=== Provisioning server for ${DOMAIN} ==="
 
 # Update system
 echo "-- Updating system packages..."
-apt-get update
-apt-get upgrade -y
+dnf update -y
 
 # Install Python and dependencies
 echo "-- Installing Python and dependencies..."
-apt-get install -y \
+dnf install -y \
     python3 \
-    python3-venv \
     python3-pip \
     git \
     curl \
     nginx \
-    certbot \
-    python3-certbot-nginx \
-    ufw
+    certbot
 
 # Configure firewall
 echo "-- Configuring firewall..."
-ufw allow OpenSSH
-ufw allow 'Nginx Full'
-echo "y" | ufw enable
+if command -v firewall-cmd &>/dev/null; then
+    echo "  Using firewalld..."
+    firewall-cmd --permanent --add-service=ssh
+    firewall-cmd --permanent --add-service=http
+    firewall-cmd --permanent --add-service=https
+    firewall-cmd --reload
+elif command -v iptables &>/dev/null; then
+    echo "  Using iptables (firewalld not available)..."
+    iptables -A INPUT -p tcp --dport 22 -j ACCEPT
+    iptables -A INPUT -p tcp --dport 80 -j ACCEPT
+    iptables -A INPUT -p tcp --dport 443 -j ACCEPT
+else
+    echo "  Warning: No firewall tool found. Please configure firewall manually."
+fi
 
 # Create app user (non-root)
 echo "-- Creating app user..."
