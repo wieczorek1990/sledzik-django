@@ -9,9 +9,11 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/6.1/howto/deployment/checklist/
 
 ALLOWED_HOSTS = [
+    "sledzik.soiree.tech",
     "proud-amazingly-filly.ngrok-free.app",
 ]
 CSRF_TRUSTED_ORIGINS = [
+    "https://sledzik.soiree.tech",
     "https://proud-amazingly-filly.ngrok-free.app",
 ]
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "fallback-dev-key")

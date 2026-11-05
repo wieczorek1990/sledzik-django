@@ -1,0 +1,18 @@
+[Unit]
+Description=Śledzik Django ASGI Application
+After=network.target
+
+[Service]
+Type=simple
+User=sledzik
+Group=sledzik
+WorkingDirectory=/home/sledzik/sledzik-django
+EnvironmentFile=/home/sledzik/sledzik-django/bin/envs.sh
+ExecStart=/home/sledzik/sledzik-django/.venv/bin/daphne -b 0 -e "tcp:8000:interface=127.0.0.1" śledzik.asgi:application
+Restart=always
+RestartSec=5
+StandardOutput=append:/var/log/sledzik/sledzik.log
+StandardError=append:/var/log/sledzik/sledzik-error.log
+
+[Install]
+WantedBy=multi-user.target
