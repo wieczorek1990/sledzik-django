@@ -20,6 +20,7 @@ urlpatterns = [
     path("", views.index, name="home"),
     path("extension/", views.extension, name="extension"),
     path("sample/", views.sample, name="sample"),
+    path("links/", views.links, name="links"),
     path("sample.js", views.sample_js, name="sample-js"),
     path("style.css", views.style_css, name="style-css"),
     path("favicon.ico", views.favicon, name="favicon"),

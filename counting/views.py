@@ -293,3 +293,8 @@ def favicon(request):
         (settings.BASE_DIR / "counting/static/counting/favicon.ico").open("rb"),
         content_type="image/vnd.microsoft.icon",
     )
+
+
+@staff_member_required
+def links(request):
+    return render(request, "links.html")
