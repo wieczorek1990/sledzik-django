@@ -47,6 +47,9 @@ chown -R "${APP_USER}:${APP_USER}" "$APP_DIR"
 echo "-- Setting up Python virtual environment..."
 su - "${APP_USER}" -c "python3 -m venv ${VENV_DIR}"
 su - "${APP_USER}" -c "${VENV_DIR}/bin/pip install --upgrade pip"
+# Fix pip cache ownership so the app user can cache packages
+mkdir -p /home/${APP_USER}/.cache/pip
+chown -R "${APP_USER}:${APP_USER}" /home/${APP_USER}/.cache
 # AUTOBAHN_USE_NVX=0 is required on Python 3.14+ where no pre-built wheels exist
 su - "${APP_USER}" -c "AUTOBAHN_USE_NVX=0 ${VENV_DIR}/bin/pip install -r ${APP_DIR}/requirements.txt"
 
