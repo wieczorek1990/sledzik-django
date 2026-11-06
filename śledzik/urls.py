@@ -19,6 +19,7 @@ router.register(
 urlpatterns = [
     path("", views.index, name="home"),
     path("extension/", views.extension, name="extension"),
+    path("extension.js/", views.extension_js, name="extension-js"),
     path("sample/", views.sample, name="sample"),
     path("links/", views.links, name="links"),
     path("sample.js", views.sample_js, name="sample-js"),

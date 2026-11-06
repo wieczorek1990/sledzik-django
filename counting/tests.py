@@ -282,6 +282,11 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertIn(b"window.", resp_js.content)
         self.assertNotIn(b"{%", resp_js.content)
 
+        resp_ext_js = self.client.get(reverse("extension-js"))
+        self.assertEqual(resp_ext_js.status_code, 200)
+        self.assertEqual(resp_ext_js["Content-Type"], "application/javascript; charset=utf-8")
+        self.assertIn("window.Śledzik", resp_ext_js.content.decode("utf-8"))
+
     def test_extension_navigation_has_favicon_but_scripts_receive_javascript(self):
         preview = self.client.get(reverse("extension"), HTTP_SEC_FETCH_DEST="document")
         self.assertEqual(preview.status_code, 200)
@@ -317,6 +322,15 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertIn(b"Action Counters Over Time", resp_staff.content)
         self.assertIn(b'id="chart-section"', resp_staff.content)
         self.assertIn(b'style="display: none;"', resp_staff.content)
+
+        resp_links = self.client.get(reverse("links"))
+        self.assertEqual(resp_links.status_code, 200)
+        self.assertIn(b"extension.js", resp_links.content)
+        self.assertIn(reverse("extension-js").encode(), resp_links.content)
+        self.assertIn(reverse("admin:index").encode(), resp_links.content)
+        self.assertIn(reverse("extension").encode(), resp_links.content)
+        self.assertIn(reverse("sample").encode(), resp_links.content)
+        self.assertIn(reverse("home").encode(), resp_links.content)
 
     def test_funnel_statistics_empty_time_series(self):
         url = f"/api/funnels/{self.funnel.pk}/statistics/"

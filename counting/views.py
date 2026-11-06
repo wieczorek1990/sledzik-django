@@ -280,6 +280,10 @@ def sample(request):
     return render(request, "sample.html")
 
 
+def extension_js(request):
+    return render(request, "extension.js", content_type="application/javascript; charset=utf-8")
+
+
 def sample_js(request):
     return render(request, "sample.js", content_type="application/javascript; charset=utf-8")
 

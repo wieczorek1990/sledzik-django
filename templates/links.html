@@ -11,10 +11,11 @@
     {% include 'logo.html' %}
     <h1>Śledzik Links</h1>
     <ul>
-        <li><a href="https://sledzik.soiree.tech/admin/">Admin panel</a></li>
-        <li><a href="https://sledzik.soiree.tech/extension/">Extension</a></li>
-        <li><a href="https://sledzik.soiree.tech/sample/">Sample</a></li>
-        <li><a href="https://sledzik.soiree.tech">Home</a></li>
+        <li><a href="{% url 'admin:index' %}">Admin panel</a></li>
+        <li><a href="{% url 'extension' %}">Extension</a></li>
+        <li><a href="{% url 'extension-js' %}">extension.js</a></li>
+        <li><a href="{% url 'sample' %}">Sample</a></li>
+        <li><a href="{% url 'home' %}">Home</a></li>
     </ul>
 </body>
 </html>
