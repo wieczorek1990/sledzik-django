@@ -113,6 +113,12 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# Use fast password hasher during testing to eliminate CPU bottlenecks
+if "test" in sys.argv or getattr(sys, "_called_from_test", False):
+    PASSWORD_HASHERS = [
+        "django.contrib.auth.hashers.MD5PasswordHasher",
+    ]
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.1/topics/i18n/
