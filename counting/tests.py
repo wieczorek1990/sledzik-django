@@ -333,9 +333,9 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertIn(b'href="/favicon.ico?v=2"', preview.content)
         self.assertIn(b'<pre class="source-preview">', preview.content)
         self.assertIn(b"&quot;Authorization&quot;", preview.content)
+        self.assertIn(reverse("extension-js").encode(), preview.content)
         for url, destination in [
             (reverse("extension"), "script"),
-            (reverse("extension") + "?raw=1", "document"),
         ]:
             script = self.client.get(url, HTTP_SEC_FETCH_DEST=destination)
             self.assertEqual(

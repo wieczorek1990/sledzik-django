@@ -10,7 +10,7 @@
 <body>
     {% include 'logo.html' %}
     <h1>extension.js</h1>
-    <p><a href="{% url 'extension' %}?raw=1">View raw JavaScript</a></p>
+    <p><a href="{% url 'extension-js' %}">View raw JavaScript</a></p>
     <pre class="source-preview"><code>{{ source|force_escape }}</code></pre>
 </body>
 </html>

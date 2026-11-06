@@ -276,7 +276,7 @@ def index(request):
 
 @vary_on_headers("Sec-Fetch-Dest")
 def extension(request):
-    if request.headers.get("Sec-Fetch-Dest") == "document" and "raw" not in request.GET:
+    if request.headers.get("Sec-Fetch-Dest") == "document":
         return render(
             request,
             "extension.html",

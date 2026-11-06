@@ -7,7 +7,7 @@ action chooser, Hit button, and Logout button.
 The source files are Django templates. Load their rendered routes:
 
 Opening `/extension/` in a browser tab shows an HTML source preview with the
-site favicon. Script requests receive JavaScript as before; `/extension/?raw=1`
+site favicon. Script requests receive JavaScript as before; `/extension.js`
 always returns raw JavaScript. Responses vary by `Sec-Fetch-Dest` so caches keep
 the document preview separate from the script.
 
