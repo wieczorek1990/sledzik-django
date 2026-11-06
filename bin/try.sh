@@ -3,6 +3,7 @@
 
 set -euo pipefail
 
+. ./.venv/bin/activate
 . ./bin/envs.sh
 ./manage.py collectstatic --noinput
 ./manage.py makemigrations
