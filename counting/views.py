@@ -274,7 +274,6 @@ class FunnelStatisticsView(views.APIView):
         )
 
 
-@staff_member_required
 def index(request):
     return render(request, "index.html")
 
