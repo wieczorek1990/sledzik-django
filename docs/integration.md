@@ -106,9 +106,10 @@ For multiple simultaneous first hits, share one authorization promise, as
 | Method | Behavior |
 | --- | --- |
 | `getUrl(actionId)` | Builds the action's hit URL on the origin that served `/extension/`. |
+| `registerAnonymous()` | Creates an anonymous user session on the server, saves the returned token, and returns the registration JSON payload. |
 | `setAuthToken(token)` | Sets the in-memory user token and saves it in localStorage. Pass `null` to clear it. |
 | `getAuthToken()` | Returns the in-memory token, falling back to localStorage. |
-| `hit(url, tenantToken, callback?, userAuthToken?)` | Posts a hit and returns a promise resolving to a Fetch `Response`. |
+| `hit(url, tenantToken, callback?, userAuthToken?)` | Posts a hit and returns a promise resolving to a Fetch `Response`. If no auth token is currently set, automatically registers anonymously first. |
 
 `hit` chooses the explicit `userAuthToken` argument first, then the stored token.
 The optional callback receives the response. An empty tenant token rejects the

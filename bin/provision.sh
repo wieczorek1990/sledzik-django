@@ -1,6 +1,6 @@
 #!/bin/bash
 # Provision the Scaleway server with all dependencies.
-# Run as root: ssh root@151.115.72.64 'bash -s' < bin/provision.sh
+# Run as root: ssh root@sledzik.soiree.tech 'bash -s' < bin/provision.sh
 
 set -eu
 
@@ -56,5 +56,5 @@ chown sledzik:sledzik /var/log/sledzik
 
 echo "=== Provisioning complete ==="
 echo "Next steps:"
-echo "1. Deploy the app: ssh root@151.115.72.64 'bash -s' < bin/deploy.sh"
-echo "2. Set up SSL: ssh root@151.115.72.64 'bash -s' < bin/setup-ssl.sh"
+echo "1. Deploy the app: ssh root@sledzik.soiree.tech 'bash -s' < bin/deploy.sh"
+echo "2. Set up SSL: ssh root@sledzik.soiree.tech 'bash -s' < bin/setup-ssl.sh"

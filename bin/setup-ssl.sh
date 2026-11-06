@@ -1,6 +1,6 @@
 #!/bin/bash
 # Set up SSL certificates with Let's Encrypt and configure Nginx.
-# Run as root after deploying the app: ssh root@151.115.72.64 'bash -s' < bin/setup-ssl.sh
+# Run as root after deploying the app: ssh root@sledzik.soiree.tech 'bash -s' < bin/setup-ssl.sh
 
 set -eu
 

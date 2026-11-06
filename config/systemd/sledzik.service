@@ -7,7 +7,7 @@ Type=simple
 User=sledzik
 Group=sledzik
 WorkingDirectory=/opt/sledzik
-EnvironmentFile=/opt/sledzik/bin/envs.sh
+EnvironmentFile=/etc/sledzik/sledzik.env
 ExecStart=/opt/sledzik/.venv/bin/daphne -e "tcp:8000:interface=127.0.0.1" śledzik.asgi:application
 Restart=always
 RestartSec=5

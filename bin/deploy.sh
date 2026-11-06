@@ -1,6 +1,6 @@
 #!/bin/bash
 # Deploy the Śledzik Django app to the server.
-# Run as root after provisioning: ssh root@151.115.72.64 'bash -s' < bin/deploy.sh
+# Run as root after provisioning: ssh root@sledzik.soiree.tech 'bash -s' < bin/deploy.sh
 # Requires: repo accessible via git, or use rsync/scp to copy code first.
 
 set -eu
@@ -36,7 +36,7 @@ else
     echo "ERROR: Application directory not found at ${APP_DIR}."
     echo "Please copy the code to the server first:"
     echo "  rsync -avz --exclude='.venv' --exclude='db.sqlite3' --exclude='__pycache__' \\"
-    echo "       --exclude='static/' --exclude='.git/' ./ root@151.115.72.64:${APP_DIR}/"
+    echo "       --exclude='static/' --exclude='.git/' ./ root@sledzik.soiree.tech:\${APP_DIR}/"
     echo "Then re-run this script."
     exit 1
 fi
@@ -55,18 +55,20 @@ su - "${APP_USER}" -c "AUTOBAHN_USE_NVX=0 ${VENV_DIR}/bin/pip install -r ${APP_D
 
 # Create environment file
 echo "-- Creating environment configuration..."
-cat > "${APP_DIR}/bin/envs.sh" <<EOF
+ENV_FILE="/etc/sledzik/sledzik.env"
+cat > "$ENV_FILE" <<EOF
 DJANGO_DEBUG=0
 DJANGO_SECRET_KEY="${SECRET_KEY}"
 PORT=8000
 EOF
-chown "${APP_USER}:${APP_USER}" "${APP_DIR}/bin/envs.sh"
-chmod +x "${APP_DIR}/bin/envs.sh"
+chown "${APP_USER}:${APP_USER}" "$ENV_FILE"
+chmod 600 "$ENV_FILE"
+rm -f "${APP_DIR}/bin/envs.sh"
 
 # Run migrations and collect static files
 echo "-- Running migrations and collecting static files..."
-su - "${APP_USER}" -c "cd ${APP_DIR} && ${VENV_DIR}/bin/python manage.py migrate --noinput"
-su - "${APP_USER}" -c "cd ${APP_DIR} && ${VENV_DIR}/bin/python manage.py collectstatic --noinput"
+su - "${APP_USER}" -c "cd ${APP_DIR} && set -a && . /etc/sledzik/sledzik.env && set +a && ${VENV_DIR}/bin/python manage.py migrate --noinput"
+su - "${APP_USER}" -c "cd ${APP_DIR} && set -a && . /etc/sledzik/sledzik.env && set +a && ${VENV_DIR}/bin/python manage.py collectstatic --noinput"
 
 # Create database backup directory
 mkdir -p "${APP_DIR}/backups"
@@ -76,5 +78,5 @@ echo "=== Deployment complete ==="
 echo "Next steps:"
 echo "1. Install systemd service: cp config/systemd/sledzik.service /etc/systemd/system/"
 echo "2. Install Nginx config: cp config/nginx/sledzik.conf /etc/nginx/conf.d/"
-echo "3. Set up SSL: ssh root@151.115.72.64 'bash -s' < bin/setup-ssl.sh"
+echo "3. Set up SSL: ssh root@sledzik.soiree.tech 'bash -s' < bin/setup-ssl.sh"
 echo "4. Start the service: systemctl enable --now sledzik"

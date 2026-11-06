@@ -5,7 +5,7 @@
 
 set -eu
 
-SERVER="root@151.115.72.64"
+SERVER="${1:-root@sledzik.soiree.tech}"
 APP_DIR="/opt/sledzik"
 DOMAIN="sledzik.soiree.tech"
 

@@ -33,14 +33,44 @@ window.Śledzik = (function () {
         return BASE + "/api/actions/" + encodeURIComponent(actionId) + "/hit/";
     }
 
+    async function registerAnonymous() {
+        const response = await fetch(BASE + "/api/register/anonymous/", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: "{}"
+        });
+        if (!response.ok) {
+            throw new Error("Anonymous registration failed with HTTP " + response.status);
+        }
+        const data = await response.json();
+        if (data && data.token) {
+            setAuthToken(data.token);
+        }
+        return data;
+    }
+
     async function hit(url, token, userAuthToken) {
-        if (!token || (typeof token === "string" && !token.trim())) {
+        if (!token) {
+            throw new Error("Token cannot be empty");
+        }
+        if (typeof token === "object" && token !== null && typeof token.token === "string") {
+            token = token.token;
+        }
+        if (typeof token === "string" && !token.trim()) {
             throw new Error("Token cannot be empty");
         }
 
         const payload = JSON.stringify({ token: typeof token === "string" ? token.trim() : token });
         const headers = { "Content-Type": "application/json" };
-        const auth = userAuthToken || getAuthToken();
+        let auth = userAuthToken || getAuthToken();
+        if (!auth) {
+            try {
+                const regData = await registerAnonymous();
+                auth = regData.token;
+            } catch (error) {
+                // Fall back if anonymous registration fails
+            }
+        }
         if (auth) {
             headers["Authorization"] = "Token " + auth;
         }
@@ -53,5 +83,11 @@ window.Śledzik = (function () {
         });
     }
 
-    return { hit: hit, getUrl: getUrl, setAuthToken: setAuthToken, getAuthToken: getAuthToken };
+    return {
+        hit: hit,
+        getUrl: getUrl,
+        setAuthToken: setAuthToken,
+        getAuthToken: getAuthToken,
+        registerAnonymous: registerAnonymous
+    };
 })();

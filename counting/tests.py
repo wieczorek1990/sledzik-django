@@ -247,15 +247,20 @@ class AuthAndActionsCounterTest(TestCase):
 
     def test_action_hit_authenticated_correct_tenant_token(self):
         url = f"/api/actions/{self.action.pk}/hit/"
-        response = self.client.post(
-            url,
-            data={"token": str(self.tenant.token)},
-            content_type="application/json",
-            HTTP_AUTHORIZATION=f"Token {self.token.key}",
-        )
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {"success": "ok"})
-        self.assertEqual(models.ActionCounter.objects.count(), 1)
+        for payload in [
+            {"token": str(self.tenant.token)},
+            {"token": {"token": str(self.tenant.token)}},
+        ]:
+            with self.subTest(payload=payload):
+                response = self.client.post(
+                    url,
+                    data=payload,
+                    content_type="application/json",
+                    HTTP_AUTHORIZATION=f"Token {self.token.key}",
+                )
+                self.assertEqual(response.status_code, 200)
+                self.assertEqual(response.json(), {"success": "ok"})
+        self.assertEqual(models.ActionCounter.objects.count(), 2)
         counter = models.ActionCounter.objects.first()
         self.assertEqual(counter.action, self.action)
         self.assertEqual(counter.user, self.user)
@@ -325,6 +330,7 @@ class AuthAndActionsCounterTest(TestCase):
             resp_ext_js["Content-Type"], "application/javascript; charset=utf-8"
         )
         self.assertIn("window.Śledzik", resp_ext_js.content.decode("utf-8"))
+        self.assertIn("registerAnonymous", resp_ext_js.content.decode("utf-8"))
 
     def test_extension_navigation_has_favicon_but_scripts_receive_javascript(self):
         preview = self.client.get(reverse("extension"), HTTP_SEC_FETCH_DEST="document")

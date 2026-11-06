@@ -4,15 +4,16 @@ This guide covers deploying Śledzik to a Scaleway instance.
 
 ## Server Details
 
-- **Server**: `root@151.115.72.64`
+- **Server**: `root@sledzik.soiree.tech`
 - **Domain**: `sledzik.soiree.tech`
 - **Database**: SQLite
 - **Stack**: Django + Daphne (ASGI) + Nginx + Let's Encrypt
+- **Configuration**: Environment in `/etc/sledzik/sledzik.env` (chmod 600)
 
 ## Prerequisites
 
-1. DNS `A` record for `sledzik.soiree.tech` pointing to `151.115.72.64`
-2. SSH key-based access to `root@151.115.72.64` (passwordless)
+1. DNS record configured for `sledzik.soiree.tech`
+2. SSH key-based access to `root@sledzik.soiree.tech` (passwordless)
 3. `rsync` installed locally
 
 ## Quick Deploy
@@ -37,7 +38,7 @@ If you prefer to run each step manually:
 ### 1. Provision the server
 
 ```bash
-ssh root@151.115.72.64 'bash -s' < bin/provision.sh
+ssh root@sledzik.soiree.tech 'bash -s' < bin/provision.sh
 ```
 
 This installs Python 3, Nginx, Certbot, configures the firewall, and creates the `sledzik` user.
@@ -54,13 +55,13 @@ rsync -avz \
     --exclude='.git/' \
     --exclude='.junie/' \
     --exclude='certificates/' \
-    ./ root@151.115.72.64:/home/sledzik/sledzik-django/
+    ./ root@sledzik.soiree.tech:/home/sledzik/sledzik-django/
 ```
 
 ### 3. Deploy the app
 
 ```bash
-ssh root@151.115.72.64 'bash -s' < bin/deploy.sh
+ssh root@sledzik.soiree.tech 'bash -s' < bin/deploy.sh
 ```
 
 This sets up the Python virtual environment, installs dependencies, runs migrations, and collects static files.
@@ -68,7 +69,7 @@ This sets up the Python virtual environment, installs dependencies, runs migrati
 ### 4. Set up SSL and services
 
 ```bash
-ssh root@151.115.72.64 'bash -s' < bin/setup-ssl.sh
+ssh root@sledzik.soiree.tech 'bash -s' < bin/setup-ssl.sh
 ```
 
 This configures Nginx, obtains Let's Encrypt SSL certificates, and starts the Daphne service.
@@ -78,21 +79,21 @@ This configures Nginx, obtains Let's Encrypt SSL certificates, and starts the Da
 ### Create a superuser
 
 ```bash
-ssh root@151.115.72.64 'su - sledzik -c "cd /home/sledzik/sledzik-django && .venv/bin/python manage.py createsuperuser"'
+ssh root@sledzik.soiree.tech 'su - sledzik -c "cd /home/sledzik/sledzik-django && .venv/bin/python manage.py createsuperuser"'
 ```
 
 ### Check service status
 
 ```bash
-ssh root@151.115.72.64 'systemctl status sledzik'
-ssh root@151.115.72.64 'systemctl status nginx'
+ssh root@sledzik.soiree.tech 'systemctl status sledzik'
+ssh root@sledzik.soiree.tech 'systemctl status nginx'
 ```
 
 ### View logs
 
 ```bash
-ssh root@151.115.72.64 'tail -f /var/log/sledzik/sledzik.log'
-ssh root@151.115.72.64 'tail -f /var/log/sledzik/sledzik-error.log'
+ssh root@sledzik.soiree.tech 'tail -f /var/log/sledzik/sledzik.log'
+ssh root@sledzik.soiree.tech 'tail -f /var/log/sledzik/sledzik-error.log'
 ```
 
 ## Redeploy (after code changes)
@@ -110,10 +111,10 @@ rsync -avz \
     --exclude='.git/' \
     --exclude='.junie/' \
     --exclude='certificates/' \
-    ./ root@151.115.72.64:/home/sledzik/sledzik-django/
+    ./ root@sledzik.soiree.tech:/home/sledzik/sledzik-django/
 
 # Run migrations and restart
-ssh root@151.115.72.64 'su - sledzik -c "cd /home/sledzik/sledzik-django && .venv/bin/pip install -r requirements.txt && .venv/bin/python manage.py migrate && .venv/bin/python manage.py collectstatic --noinput" && systemctl restart sledzik'
+ssh root@sledzik.soiree.tech 'su - sledzik -c "cd /home/sledzik/sledzik-django && .venv/bin/pip install -r requirements.txt && .venv/bin/python manage.py migrate && .venv/bin/python manage.py collectstatic --noinput" && systemctl restart sledzik'
 ```
 
 ## File Structure
@@ -136,19 +137,19 @@ config/
 ### SSL certificate issues
 
 ```bash
-ssh root@151.115.72.64 'certbot renew --dry-run'
+ssh root@sledzik.soiree.tech 'certbot renew --dry-run'
 ```
 
 ### Nginx config errors
 
 ```bash
-ssh root@151.115.72.64 'nginx -t'
+ssh root@sledzik.soiree.tech 'nginx -t'
 ```
 
 ### Daphne not starting
 
 ```bash
-ssh root@151.115.72.64 'journalctl -u sledzik -f'
+ssh root@sledzik.soiree.tech 'journalctl -u sledzik -f'
 ```
 
 ### Database locked (SQLite)

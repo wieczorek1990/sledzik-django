@@ -111,8 +111,11 @@ class TokenActionsView(views.APIView):
     authentication_classes = ()
 
     def post(self, request):
+        token_data = request.data.get("token", "")
+        if isinstance(token_data, dict):
+            token_data = token_data.get("token", "")
         try:
-            token = uuid.UUID(str(request.data.get("token", "")).strip())
+            token = uuid.UUID(str(token_data).strip())
         except (ValueError, AttributeError):
             return response.Response({"failure": "invalid token"}, status=401)
         tenant = models.Tenant.objects.filter(token=token).first()
@@ -141,6 +144,8 @@ class ActionsCounterView(views.APIView):
 
     def post(self, request, pk=None):
         token = request.data.get("token")
+        if isinstance(token, dict):
+            token = token.get("token")
 
         if not token or (isinstance(token, str) and not token.strip()):
             return response.Response(status=401, data={"failure": "token not present"})
