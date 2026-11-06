@@ -46,6 +46,50 @@ actions in the selected funnel. Repeated hits count once; a returning user count
 again in each window where they act. Anonymous identity follows the saved token,
 so clearing storage, changing browsers, or logging out can create a new viewer.
 
+### Installing Go
+
+The project requires Go. Install it using one of the following methods:
+
+**macOS (Homebrew):**
+```bash
+brew install go
+```
+
+**Linux (official installer):**
+```bash
+wget https://go.dev/dl/go1.22.0.linux-amd64.tar.gz
+sudo tar -C /usr/local -xzf go1.22.0.linux-amd64.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+```
+
+**Windows:** Download the MSI installer from [go.dev/dl](https://go.dev/dl/).
+
+Verify the installation:
+```bash
+go version
+```
+
+### Installing Rust
+
+The project requires Rust. Install it using `rustup` (the recommended method):
+
+**macOS / Linux:**
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+Follow the interactive prompts (option 1 is the default recommended setup). After installation, reload your shell:
+```bash
+source "$HOME/.cargo/env"
+```
+
+**Windows:** Download and run the installer from [https://www.rust-lang.org/tools/install](https://www.rust-lang.org/tools/install).
+
+Verify the installation:
+```bash
+rustc --version
+cargo --version
+```
+
 Hosts append (`/etc/hosts`):
 
 ```
