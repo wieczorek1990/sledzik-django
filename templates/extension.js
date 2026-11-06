@@ -4,6 +4,7 @@ window.Śledzik = (function () {
         ? new URL(script.src, window.location.href).origin
         : window.location.origin;
     let authToken = null;
+    let pendingAuthPromise = null;
 
     function setAuthToken(token) {
         authToken = token;
@@ -30,26 +31,40 @@ window.Śledzik = (function () {
     }
 
     function getUrl(actionId) {
+        if (typeof actionId === "string" && (
+            actionId.startsWith("http://") ||
+            actionId.startsWith("https://") ||
+            actionId.startsWith("/")
+        )) {
+            return actionId;
+        }
         return BASE + "/api/actions/" + encodeURIComponent(actionId) + "/hit/";
     }
 
     async function registerAnonymous() {
-        const response = await fetch(BASE + "/api/register/anonymous/", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: "{}"
-        });
-        if (!response.ok) {
-            throw new Error("Anonymous registration failed with HTTP " + response.status);
+        if (!pendingAuthPromise) {
+            pendingAuthPromise = (async () => {
+                const response = await fetch(BASE + "/api/register/anonymous/", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: "{}"
+                });
+                if (!response.ok) {
+                    throw new Error("Anonymous registration failed with HTTP " + response.status);
+                }
+                const data = await response.json();
+                if (data && data.token) {
+                    setAuthToken(data.token);
+                }
+                return data;
+            })().finally(() => {
+                pendingAuthPromise = null;
+            });
         }
-        const data = await response.json();
-        if (data && data.token) {
-            setAuthToken(data.token);
-        }
-        return data;
+        return pendingAuthPromise;
     }
 
-    async function hit(url, token, userAuthToken) {
+    async function hit(actionOrUrl, token, userAuthToken, legacyAuthToken) {
         if (!token) {
             throw new Error("Token cannot be empty");
         }
@@ -60,9 +75,10 @@ window.Śledzik = (function () {
             throw new Error("Token cannot be empty");
         }
 
+        const endpoint = getUrl(actionOrUrl);
         const payload = JSON.stringify({ token: typeof token === "string" ? token.trim() : token });
         const headers = { "Content-Type": "application/json" };
-        let auth = userAuthToken || getAuthToken();
+        let auth = userAuthToken || legacyAuthToken || getAuthToken();
         if (!auth) {
             try {
                 const regData = await registerAnonymous();
@@ -75,7 +91,7 @@ window.Śledzik = (function () {
             headers["Authorization"] = "Token " + auth;
         }
 
-        return await fetch(url, {
+        return await fetch(endpoint, {
             method: "POST",
             headers: headers,
             body: payload,
