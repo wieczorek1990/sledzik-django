@@ -165,7 +165,9 @@ class ActionsCounterView(views.APIView):
 
 class CurrentUserView(views.APIView):
     def get(self, request):
-        return response.Response({"id": request.user.pk, "username": request.user.get_username()})
+        return response.Response(
+            {"id": request.user.pk, "username": request.user.get_username()}
+        )
 
 
 class GlobalVisitsView(views.APIView):
@@ -182,11 +184,19 @@ class FunnelStatisticsView(views.APIView):
             models.Funnel.objects.filter(project__tenant__owners=request.user), pk=pk
         )
 
-        funnel_actions = funnel.action_set.annotate(n=Count("actioncounter")).order_by("order", "pk")
+        funnel_actions = funnel.action_set.annotate(n=Count("actioncounter")).order_by(
+            "order", "pk"
+        )
         funnel_actions_dictionary = {a.name: a.n for a in funnel_actions}
 
         granularity = request.query_params.get("granularity", "1min")
-        fixed_windows = {"30min": 1800, "15min": 900, "5min": 300, "1min": 60, "12sec": 12}
+        fixed_windows = {
+            "30min": 1800,
+            "15min": 900,
+            "5min": 300,
+            "1min": 60,
+            "12sec": 12,
+        }
         calendar_windows = {
             "hour": TruncHour,
             "day": TruncDay,
@@ -212,23 +222,20 @@ class FunnelStatisticsView(views.APIView):
             trunc_fn = F("created")
         else:
             return response.Response(
-                {"granularity": "Choose created, 12sec, 1min, 5min, 15min, 30min, hour, day, month, or year."}, status=400
+                {
+                    "granularity": "Choose created, 12sec, 1min, 5min, 15min, 30min, hour, day, month, or year."
+                },
+                status=400,
             )
 
         grouping = ["period", "action__name"]
 
-        counters = (
-            models.ActionCounter.objects.filter(
-                action__funnel=funnel,
-                action__funnel__project__tenant__owners=request.user,
-            )
-            .annotate(period=trunc_fn)
-        )
+        counters = models.ActionCounter.objects.filter(
+            action__funnel=funnel,
+            action__funnel__project__tenant__owners=request.user,
+        ).annotate(period=trunc_fn)
         time_series_qs = (
-            counters
-            .values(*grouping)
-            .annotate(count=Count("id"))
-            .order_by(*grouping)
+            counters.values(*grouping).annotate(count=Count("id")).order_by(*grouping)
         )
 
         def format_created(entry):
@@ -270,10 +277,16 @@ def index(request):
 @vary_on_headers("Sec-Fetch-Dest")
 def extension(request):
     if request.headers.get("Sec-Fetch-Dest") == "document" and "raw" not in request.GET:
-        return render(request, "extension.html", {
-            "source": render_to_string("extension.js", request=request),
-        })
-    return render(request, "extension.js", content_type="application/javascript; charset=utf-8")
+        return render(
+            request,
+            "extension.html",
+            {
+                "source": render_to_string("extension.js", request=request),
+            },
+        )
+    return render(
+        request, "extension.js", content_type="application/javascript; charset=utf-8"
+    )
 
 
 def sample(request):
@@ -281,11 +294,15 @@ def sample(request):
 
 
 def extension_js(request):
-    return render(request, "extension.js", content_type="application/javascript; charset=utf-8")
+    return render(
+        request, "extension.js", content_type="application/javascript; charset=utf-8"
+    )
 
 
 def sample_js(request):
-    return render(request, "sample.js", content_type="application/javascript; charset=utf-8")
+    return render(
+        request, "sample.js", content_type="application/javascript; charset=utf-8"
+    )
 
 
 def style_css(request):

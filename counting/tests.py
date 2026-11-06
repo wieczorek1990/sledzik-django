@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
@@ -44,7 +44,7 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(response.json(), {"token": self.token.key})
 
     def test_counter_preserves_created_timestamp(self):
-        timestamp = datetime(2026, 10, 30, 12, microsecond=123456, tzinfo=timezone.utc)
+        timestamp = datetime(2026, 10, 30, 12, microsecond=123456, tzinfo=UTC)
         with patch("django.utils.timezone.now", return_value=timestamp):
             counter = models.ActionCounter.objects.create(
                 action=self.action, user=self.user
@@ -57,11 +57,11 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(counter.created, timestamp)
 
     def test_bulk_counter_preserves_created_timestamp(self):
-        timestamp = datetime(2026, 10, 30, 12, microsecond=123456, tzinfo=timezone.utc)
+        timestamp = datetime(2026, 10, 30, 12, microsecond=123456, tzinfo=UTC)
         with patch("django.utils.timezone.now", return_value=timestamp):
-            models.ActionCounter.objects.bulk_create([
-                models.ActionCounter(action=self.action, user=self.user)
-            ])
+            models.ActionCounter.objects.bulk_create(
+                [models.ActionCounter(action=self.action, user=self.user)]
+            )
         self.assertEqual(models.ActionCounter.objects.get().created, timestamp)
 
     def test_api_auth_no_slash_success(self):
@@ -260,6 +260,39 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(counter.action, self.action)
         self.assertEqual(counter.user, self.user)
 
+    def test_cors_preflight_and_headers_on_action_hit(self):
+        url = f"/api/actions/{self.action.pk}/hit/"
+        # Preflight OPTIONS request
+        response = self.client.options(
+            url,
+            HTTP_ORIGIN="https://sample.example.com",
+            HTTP_ACCESS_CONTROL_REQUEST_METHOD="POST",
+            HTTP_ACCESS_CONTROL_REQUEST_HEADERS="authorization, content-type",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Access-Control-Allow-Origin"], "https://sample.example.com"
+        )
+        self.assertEqual(response["Access-Control-Allow-Credentials"], "true")
+        self.assertIn(
+            "authorization, content-type", response["Access-Control-Allow-Headers"]
+        )
+        self.assertIn("POST", response["Access-Control-Allow-Methods"])
+
+        # Actual POST request
+        response = self.client.post(
+            url,
+            data={"token": str(self.tenant.token)},
+            content_type="application/json",
+            HTTP_ORIGIN="https://sample.example.com",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Access-Control-Allow-Origin"], "https://sample.example.com"
+        )
+        self.assertEqual(response.json(), {"success": "ok"})
+
     def test_sample_and_extension_views(self):
         resp_sample = self.client.get("/sample/")
         self.assertEqual(resp_sample.status_code, 200)
@@ -269,13 +302,17 @@ class AuthAndActionsCounterTest(TestCase):
 
         resp_ext = self.client.get("/extension/")
         self.assertEqual(resp_ext.status_code, 200)
-        self.assertEqual(resp_ext["Content-Type"], "application/javascript; charset=utf-8")
+        self.assertEqual(
+            resp_ext["Content-Type"], "application/javascript; charset=utf-8"
+        )
         self.assertIn("window.Śledzik", resp_ext.content.decode("utf-8"))
         self.assertIn("Sec-Fetch-Dest", resp_ext["Vary"])
 
         resp_js = self.client.get(reverse("sample-js"))
         self.assertEqual(resp_js.status_code, 200)
-        self.assertEqual(resp_js["Content-Type"], "application/javascript; charset=utf-8")
+        self.assertEqual(
+            resp_js["Content-Type"], "application/javascript; charset=utf-8"
+        )
         self.assertIn("window.Śledzik", resp_js.content.decode("utf-8"))
         self.assertIn(reverse("api-register-anonymous").encode(), resp_js.content)
         self.assertIn(reverse("token-actions").encode(), resp_js.content)
@@ -284,7 +321,9 @@ class AuthAndActionsCounterTest(TestCase):
 
         resp_ext_js = self.client.get(reverse("extension-js"))
         self.assertEqual(resp_ext_js.status_code, 200)
-        self.assertEqual(resp_ext_js["Content-Type"], "application/javascript; charset=utf-8")
+        self.assertEqual(
+            resp_ext_js["Content-Type"], "application/javascript; charset=utf-8"
+        )
         self.assertIn("window.Śledzik", resp_ext_js.content.decode("utf-8"))
 
     def test_extension_navigation_has_favicon_but_scripts_receive_javascript(self):
@@ -293,13 +332,15 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(preview["Content-Type"], "text/html; charset=utf-8")
         self.assertIn(b'href="/favicon.ico?v=2"', preview.content)
         self.assertIn(b'<pre class="source-preview">', preview.content)
-        self.assertIn(b'&quot;Authorization&quot;', preview.content)
+        self.assertIn(b"&quot;Authorization&quot;", preview.content)
         for url, destination in [
             (reverse("extension"), "script"),
             (reverse("extension") + "?raw=1", "document"),
         ]:
             script = self.client.get(url, HTTP_SEC_FETCH_DEST=destination)
-            self.assertEqual(script["Content-Type"], "application/javascript; charset=utf-8")
+            self.assertEqual(
+                script["Content-Type"], "application/javascript; charset=utf-8"
+            )
             self.assertIn("window.Śledzik", script.content.decode())
             self.assertNotIn(b"<html", script.content)
 
@@ -377,7 +418,7 @@ class AuthAndActionsCounterTest(TestCase):
 
     def test_statistics_exact_created_timestamp(self):
         for microsecond in [123456, 123457]:
-            timestamp = datetime(2026, 10, 30, 12, microsecond=microsecond, tzinfo=timezone.utc)
+            timestamp = datetime(2026, 10, 30, 12, microsecond=microsecond, tzinfo=UTC)
             with patch("django.utils.timezone.now", return_value=timestamp):
                 models.ActionCounter.objects.create(action=self.action, user=self.user)
         response = self.client.get(
@@ -385,19 +426,30 @@ class AuthAndActionsCounterTest(TestCase):
             HTTP_AUTHORIZATION=f"Token {self.token.key}",
         )
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()["time_series"], [
-            {"created": "2026-10-30T12:00:00.123456+00:00", "action": "ready", "count": 1},
-            {"created": "2026-10-30T12:00:00.123457+00:00", "action": "ready", "count": 1},
-        ])
+        self.assertEqual(
+            response.json()["time_series"],
+            [
+                {
+                    "created": "2026-10-30T12:00:00.123456+00:00",
+                    "action": "ready",
+                    "count": 1,
+                },
+                {
+                    "created": "2026-10-30T12:00:00.123457+00:00",
+                    "action": "ready",
+                    "count": 1,
+                },
+            ],
+        )
 
     def test_statistics_groups_by_bucket_and_action(self):
         action2 = models.Action.objects.create(name="email", funnel=self.funnel)
         samples = [
-            (self.action, datetime(2026, 10, 30, 12, 10, tzinfo=timezone.utc)),
-            (self.action, datetime(2026, 10, 30, 12, 20, tzinfo=timezone.utc)),
-            (self.action, datetime(2026, 10, 30, 13, 10, tzinfo=timezone.utc)),
-            (self.action, datetime(2026, 10, 31, 12, tzinfo=timezone.utc)),
-            (action2, datetime(2026, 10, 30, 12, tzinfo=timezone.utc)),
+            (self.action, datetime(2026, 10, 30, 12, 10, tzinfo=UTC)),
+            (self.action, datetime(2026, 10, 30, 12, 20, tzinfo=UTC)),
+            (self.action, datetime(2026, 10, 30, 13, 10, tzinfo=UTC)),
+            (self.action, datetime(2026, 10, 31, 12, tzinfo=UTC)),
+            (action2, datetime(2026, 10, 30, 12, tzinfo=UTC)),
         ]
         for action, created in samples:
             counter = models.ActionCounter.objects.create(action=action, user=self.user)
@@ -405,38 +457,53 @@ class AuthAndActionsCounterTest(TestCase):
 
         url = f"/api/funnels/{self.funnel.pk}/statistics/"
         for query, expected in [
-            ("", [
-                ("2026-10-30T12:00:00+00:00", "email", 1),
-                ("2026-10-30T12:10:00+00:00", "ready", 1),
-                ("2026-10-30T12:20:00+00:00", "ready", 1),
-                ("2026-10-30T13:10:00+00:00", "ready", 1),
-                ("2026-10-31T12:00:00+00:00", "ready", 1),
-            ]),
-            ("?granularity=day", [
-                ("2026-10-30T00:00:00+00:00", "email", 1),
-                ("2026-10-30T00:00:00+00:00", "ready", 3),
-                ("2026-10-31T00:00:00+00:00", "ready", 1),
-            ]),
-            ("?granularity=hour", [
-                ("2026-10-30T12:00:00+00:00", "email", 1),
-                ("2026-10-30T12:00:00+00:00", "ready", 2),
-                ("2026-10-30T13:00:00+00:00", "ready", 1),
-                ("2026-10-31T12:00:00+00:00", "ready", 1),
-            ]),
-            ("?granularity=month", [
-                ("2026-10-01T00:00:00+00:00", "email", 1),
-                ("2026-10-01T00:00:00+00:00", "ready", 4),
-            ]),
+            (
+                "",
+                [
+                    ("2026-10-30T12:00:00+00:00", "email", 1),
+                    ("2026-10-30T12:10:00+00:00", "ready", 1),
+                    ("2026-10-30T12:20:00+00:00", "ready", 1),
+                    ("2026-10-30T13:10:00+00:00", "ready", 1),
+                    ("2026-10-31T12:00:00+00:00", "ready", 1),
+                ],
+            ),
+            (
+                "?granularity=day",
+                [
+                    ("2026-10-30T00:00:00+00:00", "email", 1),
+                    ("2026-10-30T00:00:00+00:00", "ready", 3),
+                    ("2026-10-31T00:00:00+00:00", "ready", 1),
+                ],
+            ),
+            (
+                "?granularity=hour",
+                [
+                    ("2026-10-30T12:00:00+00:00", "email", 1),
+                    ("2026-10-30T12:00:00+00:00", "ready", 2),
+                    ("2026-10-30T13:00:00+00:00", "ready", 1),
+                    ("2026-10-31T12:00:00+00:00", "ready", 1),
+                ],
+            ),
+            (
+                "?granularity=month",
+                [
+                    ("2026-10-01T00:00:00+00:00", "email", 1),
+                    ("2026-10-01T00:00:00+00:00", "ready", 4),
+                ],
+            ),
         ]:
             with self.subTest(query=query):
                 response = self.client.get(
                     url + query, HTTP_AUTHORIZATION=f"Token {self.token.key}"
                 )
                 self.assertEqual(response.status_code, 200)
-                self.assertEqual(response.json()["time_series"], [
-                    {"created": created, "action": action, "count": count}
-                    for created, action, count in expected
-                ])
+                self.assertEqual(
+                    response.json()["time_series"],
+                    [
+                        {"created": created, "action": action, "count": count}
+                        for created, action, count in expected
+                    ],
+                )
 
     def test_funnel_statistics_unauthenticated(self):
         url = f"/api/funnels/{self.funnel.pk}/statistics/"
@@ -445,17 +512,27 @@ class AuthAndActionsCounterTest(TestCase):
 
     def test_statistics_calendar_windows(self):
         for created in [
-            datetime(2025, 12, 31, 23, 59, 59, tzinfo=timezone.utc),
-            datetime(2026, 1, 1, tzinfo=timezone.utc),
-            datetime(2026, 1, 31, 23, 59, 59, tzinfo=timezone.utc),
-            datetime(2026, 2, 1, tzinfo=timezone.utc),
+            datetime(2025, 12, 31, 23, 59, 59, tzinfo=UTC),
+            datetime(2026, 1, 1, tzinfo=UTC),
+            datetime(2026, 1, 31, 23, 59, 59, tzinfo=UTC),
+            datetime(2026, 2, 1, tzinfo=UTC),
         ]:
-            counter = models.ActionCounter.objects.create(action=self.action, user=self.user)
+            counter = models.ActionCounter.objects.create(
+                action=self.action, user=self.user
+            )
             models.ActionCounter.objects.filter(pk=counter.pk).update(created=created)
         for granularity, expected in [
             ("year", [("2025-01-01", 1), ("2026-01-01", 3)]),
             ("month", [("2025-12-01", 1), ("2026-01-01", 2), ("2026-02-01", 1)]),
-            ("day", [("2025-12-31", 1), ("2026-01-01", 1), ("2026-01-31", 1), ("2026-02-01", 1)]),
+            (
+                "day",
+                [
+                    ("2025-12-31", 1),
+                    ("2026-01-01", 1),
+                    ("2026-01-31", 1),
+                    ("2026-02-01", 1),
+                ],
+            ),
         ]:
             with self.subTest(granularity=granularity):
                 result = self.client.get(
@@ -463,37 +540,55 @@ class AuthAndActionsCounterTest(TestCase):
                     HTTP_AUTHORIZATION=f"Token {self.token.key}",
                 )
                 self.assertEqual(result.status_code, 200)
-                self.assertEqual(result.json()["time_series"], [
-                    {"created": f"{day}T00:00:00+00:00", "action": "ready", "count": count}
-                    for day, count in expected
-                ])
+                self.assertEqual(
+                    result.json()["time_series"],
+                    [
+                        {
+                            "created": f"{day}T00:00:00+00:00",
+                            "action": "ready",
+                            "count": count,
+                        }
+                        for day, count in expected
+                    ],
+                )
 
     def test_statistics_short_window_boundaries(self):
-        start = datetime(2026, 10, 30, 12, tzinfo=timezone.utc)
+        start = datetime(2026, 10, 30, 12, tzinfo=UTC)
         for granularity, seconds in [
-            ("hour", 3600), ("30min", 1800), ("15min", 900),
-            ("5min", 300), ("1min", 60), ("12sec", 12),
+            ("hour", 3600),
+            ("30min", 1800),
+            ("15min", 900),
+            ("5min", 300),
+            ("1min", 60),
+            ("12sec", 12),
         ]:
             with self.subTest(granularity=granularity):
                 models.ActionCounter.objects.all().delete()
                 end = start + timedelta(seconds=seconds)
                 for created in [start, end - timedelta(microseconds=1), end]:
-                    counter = models.ActionCounter.objects.create(action=self.action, user=self.user)
-                    models.ActionCounter.objects.filter(pk=counter.pk).update(created=created)
+                    counter = models.ActionCounter.objects.create(
+                        action=self.action, user=self.user
+                    )
+                    models.ActionCounter.objects.filter(pk=counter.pk).update(
+                        created=created
+                    )
                 result = self.client.get(
                     f"/api/funnels/{self.funnel.pk}/statistics/?granularity={granularity}",
                     HTTP_AUTHORIZATION=f"Token {self.token.key}",
                 )
                 self.assertEqual(result.status_code, 200)
-                self.assertEqual(result.json()["time_series"], [
-                    {"created": start.isoformat(), "action": "ready", "count": 2},
-                    {"created": end.isoformat(), "action": "ready", "count": 1},
-                ])
+                self.assertEqual(
+                    result.json()["time_series"],
+                    [
+                        {"created": start.isoformat(), "action": "ready", "count": 2},
+                        {"created": end.isoformat(), "action": "ready", "count": 1},
+                    ],
+                )
 
     def test_unique_viewers_deduplicates_users_across_actions_per_window(self):
         action2 = models.Action.objects.create(name="email", funnel=self.funnel)
         other_user = User.objects.create_user(username="viewer")
-        start = datetime(2026, 10, 30, 12, tzinfo=timezone.utc)
+        start = datetime(2026, 10, 30, 12, tzinfo=UTC)
         for user, action, created in [
             (self.user, self.action, start),
             (self.user, self.action, start + timedelta(seconds=1)),
@@ -505,17 +600,22 @@ class AuthAndActionsCounterTest(TestCase):
             models.ActionCounter.objects.filter(pk=counter.pk).update(created=created)
         other_funnel = models.Funnel.objects.create(name="Other", project=self.project)
         other_action = models.Action.objects.create(name="other", funnel=other_funnel)
-        other_counter = models.ActionCounter.objects.create(action=other_action, user=self.staff_user)
+        other_counter = models.ActionCounter.objects.create(
+            action=other_action, user=self.staff_user
+        )
         models.ActionCounter.objects.filter(pk=other_counter.pk).update(created=start)
         result = self.client.get(
             f"/api/funnels/{self.funnel.pk}/statistics/",
             HTTP_AUTHORIZATION=f"Token {self.token.key}",
         )
         self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json()["unique_viewers"], [
-            {"created": start.isoformat(), "count": 2},
-            {"created": (start + timedelta(minutes=1)).isoformat(), "count": 1},
-        ])
+        self.assertEqual(
+            result.json()["unique_viewers"],
+            [
+                {"created": start.isoformat(), "count": 2},
+                {"created": (start + timedelta(minutes=1)).isoformat(), "count": 1},
+            ],
+        )
 
     def test_unique_viewers_requires_funnel_ownership(self):
         token = Token.objects.create(user=self.staff_user)
@@ -528,23 +628,36 @@ class AuthAndActionsCounterTest(TestCase):
     def test_actions_for_token_are_scoped_to_tenant(self):
         other_tenant = models.Tenant.objects.create(name="Other tenant")
         other_tenant.owners.add(self.staff_user)
-        project = models.Project.objects.create(name="Other project", tenant=other_tenant)
+        project = models.Project.objects.create(
+            name="Other project", tenant=other_tenant
+        )
         funnel = models.Funnel.objects.create(name="Other funnel", project=project)
         models.Action.objects.create(name="Hidden action", funnel=funnel)
         result = self.client.post(
-            reverse("token-actions"), {"token": f" {self.tenant.token} "},
+            reverse("token-actions"),
+            {"token": f" {self.tenant.token} "},
             content_type="application/json",
         )
         self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json(), [
-            {"id": self.action.pk, "name": self.action.name, "funnel": self.funnel.pk, "order": 0}
-        ])
+        self.assertEqual(
+            result.json(),
+            [
+                {
+                    "id": self.action.pk,
+                    "name": self.action.name,
+                    "funnel": self.funnel.pk,
+                    "order": 0,
+                }
+            ],
+        )
 
     def test_actions_for_token_rejects_invalid_tokens(self):
         for token in [None, "", "invalid", str(uuid.uuid4())]:
             with self.subTest(token=token):
                 result = self.client.post(
-                    reverse("token-actions"), {"token": token}, content_type="application/json"
+                    reverse("token-actions"),
+                    {"token": token},
+                    content_type="application/json",
                 )
                 self.assertEqual(result.status_code, 401)
 
@@ -552,7 +665,9 @@ class AuthAndActionsCounterTest(TestCase):
         tenant = models.Tenant.objects.create(name="Empty tenant")
         tenant.owners.add(self.user)
         result = self.client.post(
-            reverse("token-actions"), {"token": str(tenant.token)}, content_type="application/json"
+            reverse("token-actions"),
+            {"token": str(tenant.token)},
+            content_type="application/json",
         )
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json(), [])
@@ -560,37 +675,51 @@ class AuthAndActionsCounterTest(TestCase):
     def test_tenant_creation_includes_creator_and_selected_owners(self):
         for name, payload, expected in [
             ("Personal", {}, {self.user.pk}),
-            ("Shared", {"owners": [self.staff_user.pk]}, {self.user.pk, self.staff_user.pk}),
+            (
+                "Shared",
+                {"owners": [self.staff_user.pk]},
+                {self.user.pk, self.staff_user.pk},
+            ),
         ]:
             result = self.client.post(
-                "/api/tenants/", {"name": name, **payload},
-                content_type="application/json", HTTP_AUTHORIZATION=f"Token {self.token.key}",
+                "/api/tenants/",
+                {"name": name, **payload},
+                content_type="application/json",
+                HTTP_AUTHORIZATION=f"Token {self.token.key}",
             )
             self.assertEqual(result.status_code, 201)
             self.assertEqual(set(result.json()["owners"]), expected)
 
     def test_shared_owners_can_access_resources_without_duplicating_counts(self):
         self.tenant.owners.add(self.staff_user)
-        counter = models.ActionCounter.objects.create(action=self.action, user=self.user)
+        counter = models.ActionCounter.objects.create(
+            action=self.action, user=self.user
+        )
         for user in [self.user, self.staff_user]:
             token, _ = Token.objects.get_or_create(user=user)
             headers = {"HTTP_AUTHORIZATION": f"Token {token.key}"}
             for resource, pk in [
-                ("tenants", self.tenant.pk), ("projects", self.project.pk),
-                ("funnels", self.funnel.pk), ("actions", self.action.pk),
+                ("tenants", self.tenant.pk),
+                ("projects", self.project.pk),
+                ("funnels", self.funnel.pk),
+                ("actions", self.action.pk),
                 ("action-counters", counter.pk),
             ]:
                 with self.subTest(user=user.pk, resource=resource):
                     result = self.client.get(f"/api/{resource}/", **headers)
                     self.assertEqual(result.status_code, 200)
                     self.assertEqual([item["id"] for item in result.json()], [pk])
-            stats = self.client.get(f"/api/funnels/{self.funnel.pk}/statistics/", **headers)
+            stats = self.client.get(
+                f"/api/funnels/{self.funnel.pk}/statistics/", **headers
+            )
             self.assertEqual(stats.status_code, 200)
             self.assertEqual(stats.json()["result"], {"Funnel 1": {"ready": 1}})
             self.assertEqual(stats.json()["time_series"][0]["count"], 1)
             project = self.client.post(
-                "/api/projects/", {"name": f"Shared {user.pk}", "tenant": self.tenant.pk},
-                content_type="application/json", **headers,
+                "/api/projects/",
+                {"name": f"Shared {user.pk}", "tenant": self.tenant.pk},
+                content_type="application/json",
+                **headers,
             )
             self.assertEqual(project.status_code, 201)
             models.Project.objects.get(pk=project.json()["id"]).delete()
@@ -599,10 +728,15 @@ class AuthAndActionsCounterTest(TestCase):
         url = f"/api/tenants/{self.tenant.pk}/"
         headers = {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
         for owners in [[], [999999]]:
-            result = self.client.patch(url, {"owners": owners}, content_type="application/json", **headers)
+            result = self.client.patch(
+                url, {"owners": owners}, content_type="application/json", **headers
+            )
             self.assertEqual(result.status_code, 400)
         result = self.client.patch(
-            url, {"owners": [self.user.pk, self.staff_user.pk]}, content_type="application/json", **headers
+            url,
+            {"owners": [self.user.pk, self.staff_user.pk]},
+            content_type="application/json",
+            **headers,
         )
         self.assertEqual(result.status_code, 200)
         self.tenant.owners.remove(self.user)
@@ -612,8 +746,10 @@ class AuthAndActionsCounterTest(TestCase):
         token = Token.objects.create(user=self.staff_user)
         headers = {"HTTP_AUTHORIZATION": f"Token {token.key}"}
         result = self.client.patch(
-            f"/api/tenants/{self.tenant.pk}/", {"owners": [self.staff_user.pk]},
-            content_type="application/json", **headers,
+            f"/api/tenants/{self.tenant.pk}/",
+            {"owners": [self.staff_user.pk]},
+            content_type="application/json",
+            **headers,
         )
         self.assertEqual(result.status_code, 404)
         for resource, payload in [
@@ -622,7 +758,9 @@ class AuthAndActionsCounterTest(TestCase):
             ("actions", {"name": "Forbidden", "funnel": self.funnel.pk}),
             ("action-counters", {"action": self.action.pk}),
         ]:
-            result = self.client.post(f"/api/{resource}/", payload, content_type="application/json", **headers)
+            result = self.client.post(
+                f"/api/{resource}/", payload, content_type="application/json", **headers
+            )
             self.assertEqual(result.status_code, 400)
 
     def test_global_visits_counts_all_owned_tenants_once(self):
@@ -636,13 +774,17 @@ class AuthAndActionsCounterTest(TestCase):
             funnel = models.Funnel.objects.create(name=name, project=project)
             action = models.Action.objects.create(name=name, funnel=funnel)
             models.ActionCounter.objects.create(action=action, user=self.user)
-        result = self.client.get(reverse("global-visits"), HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        result = self.client.get(
+            reverse("global-visits"), HTTP_AUTHORIZATION=f"Token {self.token.key}"
+        )
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json(), {"visits": 3})
 
     def test_global_visits_empty_and_requires_authentication(self):
         self.assertEqual(self.client.get(reverse("global-visits")).status_code, 401)
-        result = self.client.get(reverse("global-visits"), HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        result = self.client.get(
+            reverse("global-visits"), HTTP_AUTHORIZATION=f"Token {self.token.key}"
+        )
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json(), {"visits": 0})
 
@@ -653,34 +795,48 @@ class AuthAndActionsCounterTest(TestCase):
         second = models.Action.objects.create(name="2", funnel=self.funnel, order=10)
         models.ActionCounter.objects.create(action=self.action, user=self.user)
         expected = [first.pk, second.pk, self.action.pk]
-        self.assertEqual(list(self.funnel.action_set.values_list("pk", flat=True)), expected)
+        self.assertEqual(
+            list(self.funnel.action_set.values_list("pk", flat=True)), expected
+        )
         headers = {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
         listed = self.client.get("/api/actions/", **headers)
         self.assertEqual([item["id"] for item in listed.json()], expected)
         sample = self.client.post(
-            reverse("token-actions"), {"token": str(self.tenant.token)}, content_type="application/json"
+            reverse("token-actions"),
+            {"token": str(self.tenant.token)},
+            content_type="application/json",
         )
         self.assertEqual([item["id"] for item in sample.json()], expected)
         stats = self.client.get(f"/api/funnels/{self.funnel.pk}/statistics/", **headers)
         self.assertEqual(stats.json()["action_order"], ["10", "2", "ready"])
-        self.assertEqual(stats.json()["result"][self.funnel.name], {"10": 0, "2": 0, "ready": 1})
+        self.assertEqual(
+            stats.json()["result"][self.funnel.name], {"10": 0, "2": 0, "ready": 1}
+        )
 
     def test_action_order_can_be_edited_and_rejects_negative_values(self):
         url = f"/api/actions/{self.action.pk}/"
         headers = {"HTTP_AUTHORIZATION": f"Token {self.token.key}"}
-        result = self.client.patch(url, {"order": 5}, content_type="application/json", **headers)
+        result = self.client.patch(
+            url, {"order": 5}, content_type="application/json", **headers
+        )
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json()["order"], 5)
-        invalid = self.client.patch(url, {"order": -1}, content_type="application/json", **headers)
+        invalid = self.client.patch(
+            url, {"order": -1}, content_type="application/json", **headers
+        )
         self.assertEqual(invalid.status_code, 400)
         self.action.refresh_from_db()
         self.assertEqual(self.action.order, 5)
 
     def test_current_user_matches_api_token_instead_of_admin_session(self):
         self.client.force_login(self.staff_user)
-        result = self.client.get(reverse("current-user"), HTTP_AUTHORIZATION=f"Token {self.token.key}")
+        result = self.client.get(
+            reverse("current-user"), HTTP_AUTHORIZATION=f"Token {self.token.key}"
+        )
         self.assertEqual(result.status_code, 200)
-        self.assertEqual(result.json(), {"id": self.user.pk, "username": self.user.username})
+        self.assertEqual(
+            result.json(), {"id": self.user.pk, "username": self.user.username}
+        )
 
     def test_current_user_requires_token(self):
         self.assertEqual(self.client.get(reverse("current-user")).status_code, 401)

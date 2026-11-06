@@ -11,6 +11,7 @@ class Migration(migrations.Migration):
             field=models.PositiveIntegerField(default=0),
         ),
         migrations.AlterModelOptions(
-            name="action", options={"ordering": ("funnel_id", "order", "pk")},
+            name="action",
+            options={"ordering": ("funnel_id", "order", "pk")},
         ),
     ]

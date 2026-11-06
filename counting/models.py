@@ -7,9 +7,7 @@ from django.db import models
 class Tenant(models.Model):
     name = models.CharField(max_length=255, unique=True)
     token = models.UUIDField(unique=True, default=uuid.uuid4, editable=False)
-    owners = models.ManyToManyField(
-        settings.AUTH_USER_MODEL, related_name="tenants"
-    )
+    owners = models.ManyToManyField(settings.AUTH_USER_MODEL, related_name="tenants")
 
     def __str__(self) -> str:
         return f"{self.name}"

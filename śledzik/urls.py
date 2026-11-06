@@ -19,7 +19,7 @@ router.register(
 urlpatterns = [
     path("", views.index, name="home"),
     path("extension/", views.extension, name="extension"),
-    path("extension.js/", views.extension_js, name="extension-js"),
+    re_path(r"^extension\.js/?$", views.extension_js, name="extension-js"),
     path("sample/", views.sample, name="sample"),
     path("links/", views.links, name="links"),
     path("sample.js", views.sample_js, name="sample-js"),
@@ -35,7 +35,9 @@ urlpatterns = [
         views.AnonymousRegisterView.as_view(),
         name="api-register-anonymous",
     ),
-    path("api/actions/for-token/", views.TokenActionsView.as_view(), name="token-actions"),
+    path(
+        "api/actions/for-token/", views.TokenActionsView.as_view(), name="token-actions"
+    ),
     path("api/visits/", views.GlobalVisitsView.as_view(), name="global-visits"),
     path("api/me/", views.CurrentUserView.as_view(), name="current-user"),
     path("api/", include(router.urls)),

@@ -1,3 +1,5 @@
+from typing import ClassVar
+
 from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
@@ -64,11 +66,13 @@ class ActionSerializer(serializers.ModelSerializer):
     class Meta:
         model = models.Action
         fields = ("id", "name", "funnel", "order")
-        extra_kwargs = {"order": {"min_value": 0}}
+        extra_kwargs: ClassVar[dict[str, dict[str, int]]] = {"order": {"min_value": 0}}
 
     def validate_funnel(self, value):
         # value is the Funnel object
-        if not value.project.tenant.owners.filter(pk=self.context["request"].user.pk).exists():
+        if not value.project.tenant.owners.filter(
+            pk=self.context["request"].user.pk
+        ).exists():
             raise serializers.ValidationError("You do not own this funnel.")
         return value
 
@@ -80,6 +84,8 @@ class ActionCounterSerializer(serializers.ModelSerializer):
 
     def validate_action(self, value):
         # value is the Action object
-        if not value.funnel.project.tenant.owners.filter(pk=self.context["request"].user.pk).exists():
+        if not value.funnel.project.tenant.owners.filter(
+            pk=self.context["request"].user.pk
+        ).exists():
             raise serializers.ValidationError("You do not own this action.")
         return value
