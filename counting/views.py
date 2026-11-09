@@ -63,6 +63,12 @@ class AnonymousRegisterView(views.APIView):
         )
 
 
+class LogoutView(views.APIView):
+    def post(self, request):
+        Token.objects.filter(user=request.user).delete()
+        return response.Response({"detail": "Logged out"}, status=200)
+
+
 class TenantViewSet(viewsets.ModelViewSet):
     serializer_class = serializers.TenantSerializer
 

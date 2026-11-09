@@ -35,6 +35,9 @@ urlpatterns = [
         views.AnonymousRegisterView.as_view(),
         name="api-register-anonymous",
     ),
+    re_path(
+        r"^api/logout/?$", views.LogoutView.as_view(), name="api-logout"
+    ),
     path(
         "api/actions/for-token/", views.TokenActionsView.as_view(), name="token-actions"
     ),

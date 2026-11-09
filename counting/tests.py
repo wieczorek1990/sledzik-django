@@ -194,6 +194,46 @@ class AuthAndActionsCounterTest(TestCase):
         self.assertEqual(self.client.get("/api/register/anonymous/").status_code, 405)
         self.assertEqual(User.objects.count(), count)
 
+    def test_logout_deletes_token(self):
+        # Token exists before logout
+        self.assertTrue(
+            Token.objects.filter(user=self.user, key=self.token.key).exists()
+        )
+
+        # Logout requires authentication
+        resp = self.client.post("/api/logout/", data={}, content_type="application/json")
+        self.assertEqual(resp.status_code, 401)
+
+        # Logout with valid token
+        resp = self.client.post(
+            "/api/logout/",
+            data={},
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json(), {"detail": "Logged out"})
+
+        # Token is deleted from the server
+        self.assertFalse(Token.objects.filter(user=self.user).exists())
+
+        # Subsequent requests with the old token are rejected
+        resp = self.client.get(
+            "/api/me/",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(resp.status_code, 401)
+
+    def test_logout_no_slash(self):
+        resp = self.client.post(
+            "/api/logout",
+            data={},
+            content_type="application/json",
+            HTTP_AUTHORIZATION=f"Token {self.token.key}",
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertFalse(Token.objects.filter(user=self.user).exists())
+
     def test_action_hit_authenticated_missing_token(self):
         url = f"/api/actions/{self.action.pk}/hit/"
         response = self.client.post(
