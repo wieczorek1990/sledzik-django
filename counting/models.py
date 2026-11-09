@@ -59,3 +59,10 @@ class ActionCounter(models.Model):
 
     def __str__(self) -> str:
         return f"{self.action.name}"
+
+    class Meta:
+        indexes = [
+            models.Index(fields=["action", "created"], name="idx_action_created"),
+            models.Index(fields=["user", "created"], name="idx_user_created"),
+            models.Index(fields=["created"], name="idx_created"),
+        ]
