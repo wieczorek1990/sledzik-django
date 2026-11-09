@@ -350,25 +350,24 @@ class AuthAndActionsCounterTest(TestCase):
             self.assertIn("window.Śledzik", script.content.decode())
             self.assertNotIn(b"<html", script.content)
 
-    def test_main_page_requires_staff_account(self):
-        # Anonymous user should be redirected
+    def test_main_page_accessible_to_all(self):
+        # Anonymous user should be able to access the main page
         resp_anon = self.client.get("/")
-        self.assertEqual(resp_anon.status_code, 302)
-        self.assertIn("/admin/login/", resp_anon["Location"])
+        self.assertEqual(resp_anon.status_code, 200)
+        self.assertIn(b"Action Counters Over Time", resp_anon.content)
+        self.assertIn(b'id="chart-section"', resp_anon.content)
 
-        # Non-staff authenticated user should also be redirected
+        # Authenticated non-staff user should also access the main page
         self.client.force_login(self.user)
-        resp_non_staff = self.client.get("/")
-        self.assertEqual(resp_non_staff.status_code, 302)
-        self.assertIn("/admin/login/", resp_non_staff["Location"])
+        resp_user = self.client.get("/")
+        self.assertEqual(resp_user.status_code, 200)
+        self.assertIn(b"Action Counters Over Time", resp_user.content)
 
-        # Staff user should be granted access
+        # Staff user should also access the main page
         self.client.force_login(self.staff_user)
         resp_staff = self.client.get("/")
         self.assertEqual(resp_staff.status_code, 200)
         self.assertIn(b"Action Counters Over Time", resp_staff.content)
-        self.assertIn(b'id="chart-section"', resp_staff.content)
-        self.assertIn(b'style="display: none;"', resp_staff.content)
 
         resp_links = self.client.get(reverse("links"))
         self.assertEqual(resp_links.status_code, 200)
