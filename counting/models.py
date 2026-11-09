@@ -61,6 +61,7 @@ class ActionCounter(models.Model):
         return f"{self.action.name}"
 
     class Meta:
+        # ruff: noqa: RUF012
         indexes = [
             models.Index(fields=["action", "created"], name="idx_action_created"),
             models.Index(fields=["user", "created"], name="idx_user_created"),
